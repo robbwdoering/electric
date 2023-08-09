@@ -1160,6 +1160,8 @@ function deserializeColumnData(
   switch (columnType) {
     case 'CHAR':
     case 'TEXT':
+    case 'TIMESTAMP':
+    case 'TIMESTAMPTZ':
     case 'UUID':
     case 'VARCHAR':
       return typeDecoder.text(column)
