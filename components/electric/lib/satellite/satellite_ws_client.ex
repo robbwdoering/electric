@@ -195,8 +195,6 @@ defmodule Electric.Test.SatelliteWsClient do
   end
 
   def entries_table_send_insert(conn \\ __MODULE__, lsn, commit_time, data) do
-    columns = Enum.map(gen_schema().columns, & &1.name)
-
     send_tx_data(
       conn,
       lsn,
@@ -204,7 +202,7 @@ defmodule Electric.Test.SatelliteWsClient do
       {:insert,
        %SatOpInsert{
          relation_id: gen_schema().oid,
-         row_data: Serialization.map_to_row(data, columns)
+         row_data: Serialization.map_to_row(data, gen_schema().columns)
        }}
     )
   end
@@ -218,7 +216,7 @@ defmodule Electric.Test.SatelliteWsClient do
         new_data,
         tags \\ []
       ) do
-    columns = Enum.map(gen_schema().columns, & &1.name)
+    columns = gen_schema().columns
 
     send_tx_data(
       conn,
@@ -241,8 +239,6 @@ defmodule Electric.Test.SatelliteWsClient do
         old_data,
         tags \\ []
       ) do
-    columns = Enum.map(gen_schema().columns, & &1.name)
-
     send_tx_data(
       conn,
       lsn,
@@ -250,7 +246,7 @@ defmodule Electric.Test.SatelliteWsClient do
       {:delete,
        %SatOpDelete{
          relation_id: gen_schema().oid,
-         old_row_data: Serialization.map_to_row(old_data, columns),
+         old_row_data: Serialization.map_to_row(old_data, gen_schema().columns),
          tags: tags
        }}
     )
@@ -648,7 +644,13 @@ defmodule Electric.Test.SatelliteWsClient do
 
   defp map_to_row([a, b, c]) do
     map = %{"id" => a, "content" => b, "content_b" => c}
-    columns = ["id", "content", "content_b"]
+
+    columns = [
+      %{name: "id", type: :uuid},
+      %{name: "content", type: :text},
+      %{name: "content_b", type: :text}
+    ]
+
     Serialization.map_to_row(map, columns)
   end
 end
