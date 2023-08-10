@@ -10,7 +10,6 @@ defmodule Electric.Satellite.WsValidationsTest do
   alias Electric.Satellite.Auth
 
   alias Electric.Satellite.Serialization
-  alias Electric.Replication.Changes.{Transaction, NewRecord}
 
   @ws_listener_name :ws_validations_test
   @table_name "foo"
@@ -241,6 +240,52 @@ defmodule Electric.Satellite.WsValidationsTest do
     end)
   end
 
+  test "validates timestamp values", ctx do
+    vsn = "2023072505"
+
+    :ok =
+      migrate(
+        ctx.db,
+        vsn,
+        "public.foo",
+        "CREATE TABLE public.foo (id TEXT PRIMARY KEY, t1 timestamp, t2 timestamptz)"
+      )
+
+    valid_records = [
+      %{"id" => "1", "t1" => "2023-08-07 21:28:35.111", "t2" => "2023-08-07 21:28:35.421+03:00"}
+    ]
+
+    within_replication_context(ctx, vsn, fn conn ->
+      Enum.each(valid_records, fn record ->
+        tx_op_log = serialize_trans(record)
+        MockClient.send_data(conn, tx_op_log)
+      end)
+
+      # Wait long enough for the server to process our messages, thus confirming it has been accepted
+      ping_server(conn)
+
+      refute_receive {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
+    end)
+
+    invalid_records = [
+      %{"id" => "10", "t1" => "now"},
+      %{"id" => "11", "t1" => "12345678901234567890"},
+      %{"id" => "12", "t1" => "20230832T000000"},
+      %{"id" => "13", "t1" => "2023-08-07 21:28:35+03:00"},
+      %{"id" => "14", "t2" => ""},
+      %{"id" => "15", "t2" => "+"},
+      %{"id" => "16", "t2" => "2023-08-07 21:28:35"}
+    ]
+
+    Enum.each(invalid_records, fn record ->
+      within_replication_context(ctx, vsn, fn conn ->
+        tx_op_log = serialize_trans(record)
+        MockClient.send_data(conn, tx_op_log)
+        assert_receive {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
+      end)
+    end)
+  end
+
   defp within_replication_context(ctx, vsn, expectation_fn) do
     with_connect(ctx.conn_opts, fn conn ->
       # Replication start ceremony
@@ -270,12 +315,19 @@ defmodule Electric.Satellite.WsValidationsTest do
   end
 
   defp serialize_trans(record) do
-    {[op_log], _relations, _relation_mappings} =
-      %Transaction{
-        changes: [%NewRecord{relation: {"public", @table_name}, record: record, tags: []}],
-        commit_timestamp: DateTime.utc_now()
-      }
-      |> Serialization.serialize_trans(1, %{})
+    %{oid: relation_id, columns: columns} =
+      Electric.Postgres.Extension.SchemaCache.Global.relation!({"public", @table_name})
+
+    row_data = Serialization.map_to_row(record, columns, skip_value_encoding?: true)
+    commit_timestamp = DateTime.to_unix(DateTime.utc_now(), :millisecond)
+
+    op_log = %SatOpLog{
+      ops: [
+        %SatTransOp{op: {:begin, %SatOpBegin{lsn: "1", commit_timestamp: commit_timestamp}}},
+        %SatTransOp{op: {:insert, %SatOpInsert{relation_id: relation_id, row_data: row_data}}},
+        %SatTransOp{op: {:commit, %SatOpCommit{}}}
+      ]
+    }
 
     op_log
   end
