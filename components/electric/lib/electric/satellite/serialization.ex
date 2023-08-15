@@ -228,8 +228,6 @@ defmodule Electric.Satellite.Serialization do
   @spec map_to_row(%{String.t() => binary()} | nil, [map], Keyword.t()) :: %SatOpRow{}
   def map_to_row(data, cols, opts \\ [])
 
-  def map_to_row(nil, _, _), do: nil
-
   def map_to_row(data, cols, opts) when is_list(cols) and is_map(data) do
     encode_value_fn =
       if opts[:skip_value_encoding?] do
