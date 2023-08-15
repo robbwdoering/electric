@@ -60,7 +60,7 @@ defmodule Electric.Satellite.WsValidationsTest do
       # Wait long enough for the server to process our messages, thus confirming it has been accepted
       ping_server(conn)
 
-      refute_receive {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}, @receive_timeout
+      refute_received {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
     end)
   end
 
@@ -120,7 +120,7 @@ defmodule Electric.Satellite.WsValidationsTest do
       # Wait long enough for the server to process our messages, thus confirming it has been accepted
       ping_server(conn)
 
-      refute_receive {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
+      refute_received {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
     end)
 
     invalid_records = [
@@ -175,7 +175,7 @@ defmodule Electric.Satellite.WsValidationsTest do
       # Wait long enough for the server to process our messages, thus confirming it has been accepted
       ping_server(conn)
 
-      refute_receive {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
+      refute_received {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
     end)
 
     invalid_records = [
@@ -220,7 +220,7 @@ defmodule Electric.Satellite.WsValidationsTest do
       # Wait long enough for the server to process our messages, thus confirming it has been accepted
       ping_server(conn)
 
-      refute_receive {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
+      refute_received {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
     end)
 
     invalid_records = [
@@ -264,7 +264,7 @@ defmodule Electric.Satellite.WsValidationsTest do
       # Wait long enough for the server to process our messages, thus confirming it has been accepted
       ping_server(conn)
 
-      refute_receive {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
+      refute_received {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
     end)
 
     invalid_records = [
@@ -281,7 +281,7 @@ defmodule Electric.Satellite.WsValidationsTest do
       within_replication_context(ctx, vsn, fn conn ->
         tx_op_log = serialize_trans(record)
         MockClient.send_data(conn, tx_op_log)
-        assert_receive {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}
+        assert_receive {^conn, %SatErrorResp{error_type: :INVALID_REQUEST}}, @receive_timeout
       end)
     end)
   end
