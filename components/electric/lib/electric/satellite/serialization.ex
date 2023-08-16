@@ -225,69 +225,22 @@ defmodule Electric.Satellite.Serialization do
     %SatTransOp{op: {:delete, op_delete}}
   end
 
-  @spec map_to_row(%{String.t() => binary()} | nil, [map], Keyword.t()) :: %SatOpRow{}
-  def map_to_row(data, cols, opts \\ [])
+  @spec map_to_row(%{String.t() => binary()} | nil, [map]) :: %SatOpRow{}
+  def map_to_row(data, cols)
 
-  def map_to_row(data, cols, opts) when is_list(cols) and is_map(data) do
-    encode_value_fn =
-      if opts[:skip_value_encoding?] do
-        fn val, _type -> val end
-      else
-        &encode_column_value/2
-      end
-
+  def map_to_row(data, cols) when is_map(data) and is_list(cols) do
     {values, {bitmask, num_cols}} =
       Enum.map_reduce(cols, {0, 0}, fn col, {bitmask, num_cols} ->
         # FIXME: This is inefficient, data should be stored in order, so that we
         # do not have to do lookup here, but filter columns based on the schema instead
         case Map.get(data, col.name) do
-          nil ->
-            {"", {bor(bitmask <<< 1, 1), num_cols + 1}}
-
-          val when is_binary(val) ->
-            {encode_value_fn.(val, col.type), {bitmask <<< 1, num_cols + 1}}
+          nil -> {"", {bor(bitmask <<< 1, 1), num_cols + 1}}
+          val when is_binary(val) -> {val, {bitmask <<< 1, num_cols + 1}}
         end
       end)
 
     %SatOpRow{nulls_bitmask: encode_nulls_bitmask(bitmask, num_cols), values: values}
   end
-
-  # Values of type `timestamp` are coming in from Postgres' logical replication stream in the following form:
-  #
-  #     2023-08-14 14:01:28.848242
-  #
-  # We don't need to do conversion on those values before passing them on to Satellite clients, so we let the catch-all
-  # function clause handle those. Values of type `timestamptz`, however, are coming in from the logical replication
-  # stream in the following form:
-  #
-  #     2023-08-14 10:01:28.848242-04
-  #     2023-08-14 08:31:28.848242-05:30
-  #
-  # The time zone offset depends on the time zone setting on the user database. If the offset is represented by a whole
-  # number of hours, Postgres uses a shortcut form which SQLite does not support. So we need to convert it to the full
-  # offset of the form HH:MM.
-  defp encode_column_value(val, :timestamptz) do
-    maybe_add_tz_offset_suffix(val)
-  end
-
-  # No-op encoding for the rest of supported types
-  defp encode_column_value(val, _type), do: val
-
-  defp maybe_add_tz_offset_suffix(datetime) do
-    case find_tz_offset(datetime) do
-      # No suffix needed: the offset is already in its full form.
-      <<_, _, ?:, _, _>> -> datetime
-      <<_, _>> -> datetime <> ":00"
-    end
-  end
-
-  # To match timestamps that can have different subsecond precision, skip the date and time up to seconds, then scan
-  # byte-by-byte until either - or + is found.
-  defp find_tz_offset(<<_date::binary-10, ?\s, _time::binary-8>> <> rest),
-    do: find_tz_offset(rest)
-
-  defp find_tz_offset(<<sign>> <> offset) when sign in [?-, ?+], do: offset
-  defp find_tz_offset(<<_>> <> rest), do: find_tz_offset(rest)
 
   defp encode_nulls_bitmask(bitmask, num_cols) do
     case rem(num_cols, 8) do

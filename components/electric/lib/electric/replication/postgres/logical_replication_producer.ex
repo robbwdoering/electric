@@ -342,8 +342,60 @@ defmodule Electric.Replication.Postgres.LogicalReplicationProducer do
   defp data_tuple_to_map(columns, tuple_data) do
     columns
     |> Enum.zip(tuple_data)
-    |> Map.new(fn {column, data} -> {column.name, data} end)
+    |> Map.new(fn {column, data} -> {column.name, decode_column_value(data, column.type)} end)
   end
+
+  # Values of type `timestamp` are coming in from Postgres' logical replication stream in the following form:
+  #
+  #     2023-08-14 14:01:28.848242
+  #
+  # We don't need to do conversion on those values before passing them on to Satellite clients, so we let the catch-all
+  # function clause handle those. Values of type `timestamptz`, however, are coming in from the logical replication
+  # stream in the following form:
+  #
+  #     2023-08-14 10:01:28.848242-04
+  #     2023-08-14 08:31:28.848242-05:30
+  #
+  # The time zone offset depends on the time zone setting on the user database. If the offset is represented by a whole
+  # number of hours, Postgres uses a shortcut form which SQLite does not support. So we need to convert it to the full
+  # offset of the form HH:MM.
+  defp decode_column_value(val, :timestamptz) do
+    maybe_add_tz_offset_suffix(val)
+  end
+
+  # Hex format: "\\xffa001"
+  defp decode_column_value("\\x" <> hex_str, :bytea), do: decode_hex_str(hex_str)
+
+  # Escape format: "\\377\\240\\001"
+  # defp decode_column_value(<<?\\, c1, c2, c3>> <> hex_str, :bytea), do: decode_hex_str(hex_str)
+
+  # No-op decoding for the rest of supported types
+  defp decode_column_value(val, _type), do: val
+
+  defp maybe_add_tz_offset_suffix(datetime) do
+    case find_tz_offset(datetime) do
+      # No suffix needed: the offset is already in its full form.
+      <<_, _, ?:, _, _>> -> datetime
+      <<_, _>> -> datetime <> ":00"
+    end
+  end
+
+  # To match timestamps that can have different subsecond precision, skip the date and time up to seconds, then scan
+  # byte-by-byte until either - or + is found.
+  defp find_tz_offset(<<_date::binary-10, ?\s, _time::binary-8>> <> rest),
+    do: find_tz_offset(rest)
+
+  defp find_tz_offset(<<sign>> <> offset) when sign in [?-, ?+], do: offset
+  defp find_tz_offset(<<_>> <> rest), do: find_tz_offset(rest)
+
+  defp decode_hex_str(""), do: ""
+
+  defp decode_hex_str(<<c>> <> hex_str),
+    do: <<decode_hex_char(c)::4, decode_hex_str(hex_str)::bits>>
+
+  defp decode_hex_char(char) when char in ?0..?9, do: char - ?0
+  defp decode_hex_char(char) when char in ?a..?f, do: char - ?a + 10
+  defp decode_hex_char(char) when char in ?A..?F, do: char - ?A + 10
 
   defp build_message(%Transaction{} = transaction, end_lsn, %State{} = state) do
     conn = state.conn

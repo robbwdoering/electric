@@ -44,7 +44,15 @@ defmodule Electric.Satellite.WsValidationsTest do
         ctx.db,
         vsn,
         "public.foo",
-        "CREATE TABLE public.foo (id TEXT PRIMARY KEY, num INTEGER, t1 TEXT, t2 VARCHAR NOT NULL)"
+        """
+        CREATE TABLE public.foo (
+          id TEXT PRIMARY KEY,
+          num INTEGER,
+          t1 TEXT,
+          t2 VARCHAR NOT NULL,
+          bytes BYTEA
+        )
+        """
       )
 
     within_replication_context(ctx, vsn, fn conn ->
@@ -55,6 +63,9 @@ defmodule Electric.Satellite.WsValidationsTest do
       MockClient.send_data(conn, tx_op_log)
 
       tx_op_log = serialize_trans(%{"id" => "3", "num" => "-1", "t1" => "", "t2" => "..."})
+      MockClient.send_data(conn, tx_op_log)
+
+      tx_op_log = serialize_trans(%{"id" => "4", "t2" => "...", "bytes" => <<0, 0xFF, 0x10>>})
       MockClient.send_data(conn, tx_op_log)
 
       # Wait long enough for the server to process our messages, thus confirming it has been accepted
@@ -318,7 +329,7 @@ defmodule Electric.Satellite.WsValidationsTest do
     %{oid: relation_id, columns: columns} =
       Electric.Postgres.Extension.SchemaCache.Global.relation!({"public", @table_name})
 
-    row_data = Serialization.map_to_row(record, columns, skip_value_encoding?: true)
+    row_data = Serialization.map_to_row(record, columns)
     commit_timestamp = DateTime.to_unix(DateTime.utc_now(), :millisecond)
 
     op_log = %SatOpLog{
