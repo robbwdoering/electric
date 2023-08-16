@@ -222,7 +222,7 @@ defmodule Electric.Replication.Postgres.LogicalReplicationProducer do
     # }
 
     # |> IO.inspect()
-    data = data_tuple_to_map(relation.columns, msg.tuple_data)
+    data = data_tuple_to_map(relation, msg.tuple_data)
     # %{
     #   "content" => "\\377\\240\\001",
     #   "created_at" => nil,
@@ -249,8 +249,8 @@ defmodule Electric.Replication.Postgres.LogicalReplicationProducer do
 
     relation = Map.get(state.relations, msg.relation_id)
 
-    old_data = data_tuple_to_map(relation.columns, msg.old_tuple_data)
-    data = data_tuple_to_map(relation.columns, msg.tuple_data)
+    old_data = data_tuple_to_map(relation, msg.old_tuple_data)
+    data = data_tuple_to_map(relation, msg.tuple_data)
 
     updated_record = %UpdatedRecord{
       relation: {relation.namespace, relation.name},
@@ -276,7 +276,7 @@ defmodule Electric.Replication.Postgres.LogicalReplicationProducer do
 
     data =
       data_tuple_to_map(
-        relation.columns,
+        relation,
         msg.old_tuple_data || msg.changed_key_tuple_data
       )
 
@@ -383,14 +383,23 @@ defmodule Electric.Replication.Postgres.LogicalReplicationProducer do
   end
 
   # TODO: Typecast to meaningful Elixir types here later
-  @spec data_tuple_to_map([Relation.Column.t()], list()) :: term()
-  defp data_tuple_to_map(_columns, nil), do: %{}
+  @spec data_tuple_to_map(Relation.t(), list()) :: term()
+  defp data_tuple_to_map(_relation, nil), do: %{}
 
-  defp data_tuple_to_map(columns, tuple_data) do
-    columns
+  defp data_tuple_to_map(%{namespace: "electric"} = relation, tuple_data) do
+    relation.columns
+    |> Enum.zip(tuple_data)
+    |> Map.new(fn {column, data} -> {column.name, data} end)
+  end
+
+  defp data_tuple_to_map(relation, tuple_data) do
+    relation.columns
     |> Enum.zip(tuple_data)
     |> Map.new(fn {column, data} -> {column.name, decode_column_value(data, column.type)} end)
   end
+
+  defp decode_column_value(nil, _type), do: nil
+  defp decode_column_value(:unchanged_toast, _type), do: :unchanged_toast
 
   # Values of type `timestamp` are coming in from Postgres' logical replication stream in the following form:
   #
@@ -413,8 +422,8 @@ defmodule Electric.Replication.Postgres.LogicalReplicationProducer do
   # Hex format: "\\xffa001"
   defp decode_column_value("\\x" <> hex_str, :bytea), do: decode_hex_str(hex_str)
 
-  # Escape format: "\\377\\240\\001"
-  # defp decode_column_value(<<?\\, c1, c2, c3>> <> hex_str, :bytea), do: decode_hex_str(hex_str)
+  # Escape format: "foo\\012\\001bar\\011\\020", "foo\\012\\001bar\\000\\011\\020'"
+  defp decode_column_value(str, :bytea), do: decode_escaped_str(str)
 
   # No-op decoding for the rest of supported types
   defp decode_column_value(val, _type), do: val
@@ -443,6 +452,14 @@ defmodule Electric.Replication.Postgres.LogicalReplicationProducer do
   defp decode_hex_char(char) when char in ?0..?9, do: char - ?0
   defp decode_hex_char(char) when char in ?a..?f, do: char - ?a + 10
   defp decode_hex_char(char) when char in ?A..?F, do: char - ?A + 10
+
+  defp decode_escaped_str(""), do: ""
+  defp decode_escaped_str(<<?\\, ?\\>> <> rest), do: <<?\\>> <> decode_escaped_str(rest)
+
+  defp decode_escaped_str(<<?\\, d1, d2, d3>> <> rest),
+    do: <<d1 - ?0::2, d2 - ?0::3, d3 - ?0::3>> <> decode_escaped_str(rest)
+
+  defp decode_escaped_str(<<c>> <> rest) when c in 32..126, do: <<c>> <> decode_escaped_str(rest)
 
   defp build_message(%Transaction{} = transaction, end_lsn, %State{} = state) do
     conn = state.conn
