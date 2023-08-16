@@ -180,9 +180,56 @@ defmodule Electric.Replication.Postgres.LogicalReplicationProducer do
   defp process_message(%Insert{} = msg, %State{} = state) do
     Metrics.pg_producer_received(state.origin, :insert)
 
+    # |> IO.inspect()
     relation = Map.get(state.relations, msg.relation_id)
+    # %Electric.Postgres.LogicalReplication.Messages.Relation{
+    #   id: 17455,
+    #   namespace: "public",
+    #   name: "items",
+    #   replica_identity: :all_columns,
+    #   columns: [
+    #     %Electric.Postgres.LogicalReplication.Messages.Relation.Column{
+    #       flags: [:key],
+    #       name: "id",
+    #       type: :uuid,
+    #       type_modifier: -1
+    #     },
+    #     %Electric.Postgres.LogicalReplication.Messages.Relation.Column{
+    #       flags: [:key],
+    #       name: "value",
+    #       type: :text,
+    #       type_modifier: -1
+    #     },
+    #     %Electric.Postgres.LogicalReplication.Messages.Relation.Column{
+    #       flags: [:key],
+    #       name: "content",
+    #       type: :bytea,
+    #       type_modifier: -1
+    #     },
+    #     %Electric.Postgres.LogicalReplication.Messages.Relation.Column{
+    #       flags: [:key],
+    #       name: "created_at",
+    #       type: :timestamp,
+    #       type_modifier: -1
+    #     },
+    #     %Electric.Postgres.LogicalReplication.Messages.Relation.Column{
+    #       flags: [:key],
+    #       name: "updated_at",
+    #       type: :timestamptz,
+    #       type_modifier: -1
+    #     }
+    #   ]
+    # }
 
+    # |> IO.inspect()
     data = data_tuple_to_map(relation.columns, msg.tuple_data)
+    # %{
+    #   "content" => "\\377\\240\\001",
+    #   "created_at" => nil,
+    #   "id" => "524af7c7-7fad-41d4-8159-c3d024655947",
+    #   "updated_at" => nil,
+    #   "value" => "..."
+    # }
 
     new_record = %NewRecord{relation: {relation.namespace, relation.name}, record: data}
 
