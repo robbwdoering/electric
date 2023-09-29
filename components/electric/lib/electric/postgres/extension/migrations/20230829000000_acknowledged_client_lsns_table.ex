@@ -3,28 +3,13 @@ defmodule Electric.Postgres.Extension.Migrations.Migration_20230829000000_Acknow
 
   @behaviour Extension.Migration
 
-  sql_file =
-    Path.expand(
-      "20230829000000_acknowledged_client_lsns_table/deduplicating_trigger.sql",
-      __DIR__
-    )
-
-  @external_resource sql_file
-
-  @trigger_sql File.read!(sql_file)
-
   @impl true
   def version, do: 2023_08_29_00_00_00
 
   @impl true
   def up(_) do
-    table = Extension.acked_client_lsn_table()
-
     replicated_table_ddls() ++
-      [
-        @trigger_sql,
-        Extension.add_table_to_publication_sql(table)
-      ]
+      [Extension.add_table_to_publication_sql(Extension.acked_client_lsn_table())]
   end
 
   @impl true

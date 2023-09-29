@@ -10,7 +10,7 @@ BEGIN
 
     INSERT INTO electric.acknowledged_client_lsns AS t
         VALUES (NEW.client_id, NEW.lsn)
-        ON CONFLICT (client_id) DO UPDATE 
+        ON CONFLICT (client_id) DO UPDATE
             SET lsn = NEW.lsn
             WHERE t.lsn IS DISTINCT FROM NEW.lsn;
 
