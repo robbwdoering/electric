@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION electric.upsert_acknowledged_client_lsn()
+CREATE OR REPLACE FUNCTION <%= schema() %>.upsert_acknowledged_client_lsn()
     RETURNS TRIGGER
     LANGUAGE PLPGSQL
     SECURITY DEFINER
@@ -8,7 +8,7 @@ BEGIN
     RAISE DEBUG '  Given OLD %', to_json(OLD);
     RAISE DEBUG '  Given NEW %', to_json(NEW);
 
-    INSERT INTO electric.acknowledged_client_lsns AS t
+    INSERT INTO <%= schema() %>.acknowledged_client_lsns AS t
         VALUES (NEW.client_id, NEW.lsn)
         ON CONFLICT (client_id) DO UPDATE
             SET lsn = NEW.lsn
@@ -19,9 +19,9 @@ END;
 $function$;
 
 CREATE OR REPLACE TRIGGER upsert_acknowledged_client_lsn
-BEFORE INSERT ON electric.acknowledged_client_lsns
+BEFORE INSERT ON <%= schema() %>.acknowledged_client_lsns
 FOR EACH ROW
 WHEN (pg_trigger_depth() < 1)
-EXECUTE FUNCTION electric.upsert_acknowledged_client_lsn();
+EXECUTE FUNCTION <%= schema() %>.upsert_acknowledged_client_lsn();
 
-ALTER TABLE electric.acknowledged_client_lsns ENABLE REPLICA TRIGGER upsert_acknowledged_client_lsn;
+ALTER TABLE <%= schema() %>.acknowledged_client_lsns ENABLE REPLICA TRIGGER upsert_acknowledged_client_lsn;
