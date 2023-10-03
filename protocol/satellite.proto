@@ -532,3 +532,19 @@ message SatShapeDataBegin {
 // End delimiter for the initial shape data
 message SatShapeDataEnd {
 }
+
+/** Tree structure describing a shape where clause and other function calls. */
+message FuncTree {
+    message FuncCall {
+        string name = 1;
+        repeated FuncTree args = 2;
+    }
+
+    string cast_as = 1;
+
+    oneof value {
+        string const = 2;
+        string ref = 3;
+        FuncCall func = 4;
+    }
+}
