@@ -18,6 +18,7 @@ defmodule Electric.Satellite.Eval.Env.BasicTypes do
   | varchar                 | string   |            |
   | unknown                 | unknown  |            |
   | bytea                   | user     |            |
+  | uuid                    | user     |            |
   | anyarray                | pseudo   |            |
   | anycompatible           | pseudo   |            |
   | anycompatiblearray      | pseudo   |            |

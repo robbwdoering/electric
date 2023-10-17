@@ -41,6 +41,26 @@ defmodule Electric.Satellite.PostgresInterop.Casting do
   def parse_bool("t"), do: true
   def parse_bool("f"), do: false
 
+  @doc """
+  LIKE function from SQL. Case sensitive by default.
+
+  ## Examples
+
+      iex> like?("hello", "hell_")
+      true
+
+      iex> like?("helloo", "hell_")
+      false
+
+      iex> like?("helloo", "%o_")
+      true
+
+      iex> like?("HELLO", "hello")
+      false
+
+      iex> like?("HELLO", "hello", true)
+      true
+  """
   def like?(text, pattern, ignore_case? \\ false) do
     pattern
     |> String.split(~r/(?<!\\)[_%]/, include_captures: true, trim: true)

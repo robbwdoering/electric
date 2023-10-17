@@ -5,6 +5,7 @@ defmodule Electric.Replication.ShapesTest do
   import ElectricTest.SetupHelpers
   alias Electric.Replication.Shapes
   alias Electric.Replication.Changes
+  alias Electric.Satellite.Eval
 
   describe "filter_changes_from_tx/2" do
     test "removes all changes when no requests are provided" do
@@ -38,7 +39,7 @@ defmodule Electric.Replication.ShapesTest do
           "2023071300",
           [
             "CREATE TABLE public.entries (id uuid PRIMARY KEY);",
-            "CREATE TABLE public.parent (id uuid PRIMARY KEY);",
+            "CREATE TABLE public.parent (id uuid PRIMARY KEY, value TEXT);",
             "CREATE TABLE public.child (id uuid PRIMARY KEY, parent_id uuid REFERENCES public.parent(id));"
           ]
         }
@@ -134,6 +135,103 @@ defmodule Electric.Replication.ShapesTest do
                  "Some tables are missing from the shape request" <> _}
               ]} =
                Shapes.validate_requests([request], origin)
+    end
+  end
+
+  describe "validate_requests/2 with where-claused requests" do
+    setup do
+      start_schema_cache([
+        {
+          "2023071300",
+          [
+            "CREATE TABLE public.entries (id uuid PRIMARY KEY);",
+            "CREATE TABLE public.parent (id uuid PRIMARY KEY, value TEXT);",
+            "CREATE TABLE public.child (id uuid PRIMARY KEY, parent_id uuid REFERENCES public.parent(id));"
+          ]
+        }
+      ])
+    end
+
+    test "should fail on tables that have outgoing FKs", %{origin: origin} do
+      request = %SatShapeReq{
+        request_id: "id1",
+        shape_definition: %SatShapeDef{
+          selects: [
+            %SatShapeDef.Select{
+              tablename: "child",
+              where: ~S|value parent_id::text ILIKE "0000%"|
+            }
+          ]
+        }
+      }
+
+      assert {:error,
+              [
+                {"id1", :INVALID_WHERE_CLAUSE,
+                 "Where clause currently cannot be applied to a table with outgoing FKs" <> _}
+              ]} =
+               Shapes.validate_requests([request], origin)
+    end
+
+    test "should fail on malformed queries", %{origin: origin} do
+      request = %SatShapeReq{
+        request_id: "id1",
+        shape_definition: %SatShapeDef{
+          selects: [
+            %SatShapeDef.Select{
+              tablename: "parent",
+              where: ~S|huh::boolean|
+            }
+          ]
+        }
+      }
+
+      assert {:error,
+              [
+                {"id1", :INVALID_WHERE_CLAUSE, "At location 0: unknown reference huh"}
+              ]} =
+               Shapes.validate_requests([request], origin)
+    end
+
+    test "should fail on queries that don't return booleans", %{origin: origin} do
+      request = %SatShapeReq{
+        request_id: "id1",
+        shape_definition: %SatShapeDef{
+          selects: [
+            %SatShapeDef.Select{
+              tablename: "parent",
+              where: ~S|value|
+            }
+          ]
+        }
+      }
+
+      assert {:error,
+              [
+                {"id1", :INVALID_WHERE_CLAUSE,
+                 "Where expression should evaluate to a boolean, but it's text"}
+              ]} =
+               Shapes.validate_requests([request], origin)
+    end
+
+    test "should save the query and the eval", %{origin: origin} do
+      request = %SatShapeReq{
+        request_id: "id1",
+        shape_definition: %SatShapeDef{
+          selects: [
+            %SatShapeDef.Select{tablename: "parent", where: ~S|value LIKE 'hello%'|}
+          ]
+        }
+      }
+
+      assert {:ok, [%Shapes.ShapeRequest{} = request]} =
+               Shapes.validate_requests([request], origin)
+
+      assert %{"parent" => where} = request.where
+      assert where.query == ~S|value LIKE 'hello%'|
+
+      assert {:ok, true} = Eval.Runner.execute(where.eval, %{["value"] => "hello world"})
+      assert {:ok, false} = Eval.Runner.execute(where.eval, %{["value"] => "goodbye world"})
     end
   end
 

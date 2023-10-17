@@ -20,11 +20,12 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
   alias Electric.Replication.Changes
   use Electric.Satellite.Protobuf
 
-  defstruct [:id, :included_tables]
+  defstruct [:id, :included_tables, :where]
 
   @type t() :: %__MODULE__{
           id: String.t(),
-          included_tables: [String.t(), ...]
+          included_tables: [String.t(), ...],
+          where: %{optional(String.t()) => %{query: String.t(), eval: term()}}
         }
 
   @doc """
@@ -36,15 +37,30 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
   end
 
   @doc """
-  Build a struct from the Protobuf representation of the shape request
+  Build a struct from the Protobuf representation of the shape request,
+  using a map of pre-parsed where statements.
+
+  This function will fail if the request contains a where statement that's not
+  present in the `where_statements` map.
   """
-  @spec from_satellite_request(%SatShapeReq{}) :: t()
-  def from_satellite_request(%SatShapeReq{request_id: id, shape_definition: shape}) do
+  @spec from_satellite_request(%SatShapeReq{}, map()) :: t()
+  def from_satellite_request(
+        %SatShapeReq{request_id: id, shape_definition: shape},
+        where_statements
+      ) do
     included_tables = Enum.map(shape.selects, &{"public", &1.tablename})
+
+    where =
+      shape.selects
+      |> Enum.filter(&(&1.where != ""))
+      |> Map.new(
+        &{&1.tablename, %{query: &1.where, eval: Map.fetch!(where_statements, &1.where)}}
+      )
 
     %__MODULE__{
       id: id,
-      included_tables: included_tables
+      included_tables: included_tables,
+      where: where
     }
   end
 

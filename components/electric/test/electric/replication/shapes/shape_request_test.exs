@@ -22,7 +22,7 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
     end
   end
 
-  describe "from_satellite_request/1" do
+  describe "from_satellite_request/2" do
     test "builds a ShapeRequest struct for a basic full-table request, filling schemas" do
       assert %ShapeRequest{id: "id", included_tables: [{"public", "test"}]} =
                ShapeRequest.from_satellite_request(%SatShapeReq{
@@ -30,7 +30,7 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
                  shape_definition: %SatShapeDef{
                    selects: [%SatShapeDef.Select{tablename: "test"}]
                  }
-               })
+               }, %{})
     end
   end
 

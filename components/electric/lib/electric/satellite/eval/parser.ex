@@ -35,10 +35,19 @@ defmodule Electric.Satellite.Eval.Parser do
     varchar
   ]
 
+  @type tree_part :: %Const{} | %Ref{} | %Func{}
+  @type refs_map :: %{optional([String.t(), ...]) => pg_type()}
+
+  @spec parse_and_validate_expression(String.t(), refs_map(), Env.t()) :: {:ok, tree_part()} | {:error, String.t()}
   def parse_and_validate_expression(query, refs \\ %{}, env \\ Env.new()) do
     with {:ok, %{stmts: stmts}} <- PgQuery.parse("SELECT 1 WHERE #{query}") do
       case stmts do
-        [%{stmt: %{node: {:select_stmt, stmt}}}] -> check_and_parse_stmt(stmt, refs, env)
+        [%{stmt: %{node: {:select_stmt, stmt}}}] ->
+          case check_and_parse_stmt(stmt, refs, env) do
+            {:ok, value} -> {:ok, value}
+            {:error, {loc, reason}} -> {:error, "At location #{loc}: #{reason}"}
+            {:error, reason} -> {:error, reason}
+          end
         _ -> {:error, ~s'unescaped ";" causing statement split'}
       end
     end

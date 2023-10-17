@@ -3,6 +3,7 @@ defmodule Electric.Replication.Shapes do
   Context to work with replication shapes.
   """
   import Electric.Postgres.Extension, only: [is_migration_relation: 1]
+  alias Electric.Satellite.Eval
   alias Electric.Utils
   alias Electric.Replication.Changes.Transaction
   alias Electric.Postgres.Extension.SchemaCache
@@ -57,13 +58,15 @@ defmodule Electric.Replication.Shapes do
 
   @spec validate_request(%SatShapeReq{}, Schema.t(), Graph.t()) ::
           ShapeRequest.t() | {String.t(), atom(), String.t()}
-  defp validate_request(%SatShapeReq{shape_definition: shape} = request, _schema, graph) do
+  defp validate_request(%SatShapeReq{shape_definition: shape} = request, schema, graph) do
     with :ok <- request_cannot_be_empty(shape),
          :ok <- table_names_are_valid(shape),
          :ok <- tables_should_exist(shape, graph),
          :ok <- tables_should_not_duplicate(shape),
+         :ok <- where_clauses_cannot_have_fks(shape, graph),
+         %{} = parsed <- where_clauses_are_valid(shape, schema),
          :ok <- all_fks_should_be_included(shape, graph) do
-      ShapeRequest.from_satellite_request(request)
+      ShapeRequest.from_satellite_request(request, parsed)
     else
       {code, message} -> {request.request_id, code, message}
     end
@@ -102,6 +105,28 @@ defmodule Electric.Replication.Shapes do
     end
   end
 
+  defp where_clauses_cannot_have_fks(%SatShapeDef{selects: selects}, graph) do
+    selects_with_where =
+      selects
+      |> Enum.filter(&(&1.where != ""))
+      |> Enum.map(& &1.tablename)
+
+    case Enum.filter(selects_with_where, &(Graph.out_degree(graph, &1) > 0)) do
+      [] ->
+        :ok
+
+      violations ->
+        {:INVALID_WHERE_CLAUSE,
+         "Where clause currently cannot be applied to a table with outgoing FKs, but requested tables do have them: #{Enum.join(violations, ", ")}"}
+    end
+  end
+
+  defp where_clauses_are_valid(%SatShapeDef{selects: selects}, schema) do
+    selects
+    |> Enum.filter(&(&1.where != ""))
+    |> Enum.reduce_while(%{}, &parse_where_clause(&1, schema, &2))
+  end
+
   defp all_fks_should_be_included(%SatShapeDef{selects: selects}, graph) do
     queried_tables = Enum.map(selects, & &1.tablename)
 
@@ -112,6 +137,34 @@ defmodule Electric.Replication.Shapes do
       missing_reachable ->
         {:REFERENTIAL_INTEGRITY_VIOLATION,
          "Some tables are missing from the shape request, but are referenced by FKs on the requested tables: #{Enum.join(missing_reachable, ",")}"}
+    end
+  end
+
+  # Used in `Enum.reduce_while/3`
+  defp parse_where_clause(%{tablename: table, where: where}, schema, acc) do
+    refs =
+      Schema.table_info!(schema, "public", table)
+      |> Map.fetch!(:columns)
+      |> Enum.flat_map(fn %{name: name, type: type} ->
+        # Column name references can come both as plain column name, and as table-qualified column name
+        [
+          {[name], type},
+          {[table, name], type}
+        ]
+      end)
+      |> Map.new()
+
+    case Eval.Parser.parse_and_validate_expression(where, refs) do
+      {:ok, %{type: :bool} = parsed} ->
+        {:cont, Map.put(acc, where, parsed)}
+
+      {:ok, %{type: type}} ->
+        {:halt,
+         {:INVALID_WHERE_CLAUSE,
+          "Where expression should evaluate to a boolean, but it's #{type}"}}
+
+      {:error, reason} ->
+        {:halt, {:INVALID_WHERE_CLAUSE, reason}}
     end
   end
 end
