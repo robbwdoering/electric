@@ -44,6 +44,11 @@ defmodule Electric.Satellite.Eval.Parser do
     end
   end
 
+  def parse_and_validate_expression!(query, refs \\ %{}, env \\ Env.new()) do
+    {:ok, value} = parse_and_validate_expression(query, refs, env)
+    value
+  end
+
   @prefix_length String.length("SELECT 1 WHERE ")
   defp check_and_parse_stmt(stmt, refs, env) do
     extra_suffixes =
