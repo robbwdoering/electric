@@ -4,6 +4,7 @@ defmodule Electric.Replication.Eval.Parser do
   import Electric.Satellite.PostgresInterop.Casting
   alias Electric.Replication.Eval.Env
   alias Electric.Replication.Eval.Lookups
+  alias Electric.Replication.Eval.Expr
 
   defmodule Const do
     defstruct [:value, :type, location: 0]
@@ -38,17 +39,26 @@ defmodule Electric.Replication.Eval.Parser do
   @type tree_part :: %Const{} | %Ref{} | %Func{}
   @type refs_map :: %{optional([String.t(), ...]) => pg_type()}
 
-  @spec parse_and_validate_expression(String.t(), refs_map(), Env.t()) :: {:ok, tree_part()} | {:error, String.t()}
+  @spec parse_and_validate_expression(String.t(), refs_map(), Env.t()) ::
+          {:ok, Expr.t()} | {:error, String.t()}
   def parse_and_validate_expression(query, refs \\ %{}, env \\ Env.new()) do
     with {:ok, %{stmts: stmts}} <- PgQuery.parse("SELECT 1 WHERE #{query}") do
       case stmts do
         [%{stmt: %{node: {:select_stmt, stmt}}}] ->
           case check_and_parse_stmt(stmt, refs, env) do
-            {:ok, value} -> {:ok, value}
-            {:error, {loc, reason}} -> {:error, "At location #{loc}: #{reason}"}
-            {:error, reason} -> {:error, reason}
+            {:ok, value} ->
+              {:ok,
+               %Expr{query: query, eval: value, returns: value.type, used_refs: find_refs(value)}}
+
+            {:error, {loc, reason}} ->
+              {:error, "At location #{loc}: #{reason}"}
+
+            {:error, reason} ->
+              {:error, reason}
           end
-        _ -> {:error, ~s'unescaped ";" causing statement split'}
+
+        _ ->
+          {:error, ~s'unescaped ";" causing statement split'}
       end
     end
   end
@@ -456,4 +466,9 @@ defmodule Electric.Replication.Eval.Parser do
 
   defp internal_node_to_error(%Func{type: type, name: name}),
     do: "function #{name} returning #{type}"
+
+  defp find_refs(tree, acc \\ %{})
+  defp find_refs(%Const{}, acc), do: acc
+  defp find_refs(%Ref{path: path, type: type}, acc), do: Map.put_new(acc, path, type)
+  defp find_refs(%Func{args: args}, acc), do: Enum.reduce(args, acc, &find_refs/2)
 end

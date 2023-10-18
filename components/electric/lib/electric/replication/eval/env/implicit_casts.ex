@@ -51,7 +51,6 @@ defmodule Electric.Replication.Eval.Env.ImplicitCasts do
                       |> String.split("|", trim: true)
                       |> Enum.map(&String.trim/1)
 
-
                     Enum.map(String.split(targets, ","), fn target ->
                       {{String.to_atom(type), String.to_atom(target)}, :as_is}
                     end)

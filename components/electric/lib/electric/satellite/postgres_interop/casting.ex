@@ -69,7 +69,7 @@ defmodule Electric.Satellite.PostgresInterop.Casting do
       "_" -> "."
       text -> Regex.escape(text)
     end)
-    |> then(&"^" <> &1 <> "$")
+    |> then(&("^" <> &1 <> "$"))
     |> Regex.compile!(if ignore_case?, do: [:caseless], else: [])
     |> Regex.match?(text)
   end

@@ -178,6 +178,8 @@ defmodule Electric.Replication.Shapes do
   end
 
   # Used in `Enum.reduce_while/3`
+  @spec parse_where_clause(%SatShapeDef.Select{}, Schema.t(), %{String.t() => Eval.Expr.t()}) ::
+          {:cont, %{String.t() => Eval.Expr.t()}} | {:halt, {atom(), String.t()}}
   defp parse_where_clause(%{tablename: table, where: where}, schema, acc) do
     refs =
       Schema.table_info!(schema, "public", table)
@@ -192,10 +194,10 @@ defmodule Electric.Replication.Shapes do
       |> Map.new()
 
     case Eval.Parser.parse_and_validate_expression(where, refs) do
-      {:ok, %{type: :bool} = parsed} ->
+      {:ok, %{returns: :bool} = parsed} ->
         {:cont, Map.put(acc, where, parsed)}
 
-      {:ok, %{type: type}} ->
+      {:ok, %{returns: type}} ->
         {:halt,
          {:INVALID_WHERE_CLAUSE,
           "Where expression should evaluate to a boolean, but it's #{type}"}}

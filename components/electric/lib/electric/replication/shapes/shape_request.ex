@@ -26,7 +26,7 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
   @type t() :: %__MODULE__{
           id: String.t(),
           included_tables: [String.t(), ...],
-          where: %{optional(String.t()) => %{query: String.t(), eval: term()}}
+          where: %{optional(String.t()) => Eval.Expr.t()}
         }
 
   @doc """
@@ -38,11 +38,11 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
       where = shape.where[relation]
 
       if not is_nil(where) do
-        refs = Eval.Runner.record_to_ref_values(record, relation)
-
-        case Eval.Runner.execute(where.eval, refs) do
-          {:ok, value} -> value
-          {:error, _} -> false
+        with {:ok, refs} <- Eval.Runner.record_to_ref_values(where.used_refs, record, relation),
+             {:ok, value} <- Eval.Runner.execute(where.eval, refs) do
+          value
+        else
+          _ -> false
         end
       else
         true
@@ -52,15 +52,19 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
 
   @spec get_update_position_in_shape(t(), Changes.UpdatedRecord.t()) ::
           :in | :not_in | :move_in | :move_out | :error
-  def get_update_position_in_shape(%__MODULE__{} = shape, %Changes.UpdatedRecord{} = change) do
-    if change.relation in shape.included_tables do
-      where = shape.where[change.relation]
+  def get_update_position_in_shape(
+        %__MODULE__{} = shape,
+        %Changes.UpdatedRecord{relation: rel} = change
+      ) do
+    if rel in shape.included_tables do
+      where = shape.where[rel]
 
       if not is_nil(where) do
-        old = Eval.Runner.record_to_ref_values(change.old_record, change.relation)
-        new = Eval.Runner.record_to_ref_values(change.record, change.relation)
+        used_refs = where.used_refs
 
-        with {:ok, old_satisfies?} <- Eval.Runner.execute(where.eval, old),
+        with {:ok, old} <- Eval.Runner.record_to_ref_values(used_refs, change.old_record, rel),
+             {:ok, new} <- Eval.Runner.record_to_ref_values(used_refs, change.record, rel),
+             {:ok, old_satisfies?} <- Eval.Runner.execute(where.eval, old),
              {:ok, new_satisfies?} <- Eval.Runner.execute(where.eval, new) do
           case {old_satisfies?, new_satisfies?} do
             {false, false} -> :not_in
@@ -69,6 +73,14 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
             {true, true} -> :in
           end
         else
+          :error ->
+            # Failed to apply parse the record into refs
+            Logger.warning("""
+            Could not convert the string record values to internal types
+            """)
+
+            :error
+
           {:error, {%{name: name}, args}} ->
             # Failed to apply "where" function on either old or new values.
             Logger.warning("""
@@ -92,7 +104,7 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
   This function will fail if the request contains a where statement that's not
   present in the `where_statements` map.
   """
-  @spec from_satellite_request(%SatShapeReq{}, map()) :: t()
+  @spec from_satellite_request(%SatShapeReq{}, %{String.t() => Eval.Expr.t()}) :: t()
   def from_satellite_request(
         %SatShapeReq{request_id: id, shape_definition: shape},
         where_statements
@@ -102,10 +114,7 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
     where =
       shape.selects
       |> Enum.filter(&(&1.where != ""))
-      |> Map.new(
-        &{{"public", &1.tablename},
-         %{query: &1.where, eval: Map.fetch!(where_statements, &1.where)}}
-      )
+      |> Map.new(&{{"public", &1.tablename}, Map.fetch!(where_statements, &1.where)})
 
     %__MODULE__{
       id: id,
@@ -194,7 +203,11 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
         filtering_context \\ @empty_filtering_context
       ) do
     Enum.reduce_while(request.included_tables, {:ok, 0, []}, fn table, {:ok, num_records, acc} ->
-      where = request.where[table][:query]
+      where =
+        case request.where[table] do
+          %Eval.Expr{query: query} -> query
+          _ -> nil
+        end
 
       case query_full_table(conn, table, schema, origin, where, filtering_context) do
         {:ok, count, results} ->

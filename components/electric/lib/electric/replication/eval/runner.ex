@@ -1,13 +1,28 @@
 defmodule Electric.Replication.Eval.Runner do
+  alias Electric.Replication.Eval.Expr
+  alias Electric.Replication.Eval.Env
   alias Electric.Replication.Eval.Parser.{Const, Func, Ref}
 
   @doc """
   Generate a ref values object based on the record and a given table name
   """
-  def record_to_ref_values(record, {_, table_name}) do
-    record
-    |> Enum.flat_map(fn {k, v} -> [{[k], v}, {[table_name, k], v}] end)
-    |> Map.new()
+  @spec record_to_ref_values(Expr.used_refs(), map(), tuple(), Env.t()) :: {:ok, map()} | :error
+  def record_to_ref_values(used_refs, record, {_, table_name}, env \\ Env.new()) do
+    used_refs
+    # Keep only used refs that are pointing to current table
+    |> Enum.filter(&(match?({[^table_name, _], _}, &1) or match?({[_], _}, &1)))
+    |> Enum.reduce_while({:ok, %{}}, fn {path, type}, {:ok, acc} ->
+      value =
+        case path do
+          [^table_name, key] -> record[key]
+          [key] -> record[key]
+        end
+
+      case Env.parse_const(env, value, type) do
+        {:ok, value} -> {:cont, {:ok, Map.put(acc, path, value)}}
+        :error -> {:halt, :error}
+      end
+    end)
   end
 
   @doc """

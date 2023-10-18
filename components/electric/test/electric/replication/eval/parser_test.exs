@@ -5,6 +5,7 @@ defmodule Electric.Replication.Eval.ParserTest do
   alias Electric.Replication.Eval.Parser
   alias Electric.Replication.Eval.Parser.{Const, Func, Ref}
   alias Electric.Replication.Eval.Env
+  alias Electric.Replication.Eval.Expr
 
   @int_to_bool_casts %{
     {:int4, :bool} => {ExplicitCasts, :int4_to_bool},
@@ -13,59 +14,73 @@ defmodule Electric.Replication.Eval.ParserTest do
 
   describe "parse_and_validate_expression/3 basics" do
     test "should correctly parse constants" do
-      assert {:ok, %Const{value: true}} =
-               Parser.parse_and_validate_expression("TRUE")
+      assert {:ok, %Expr{eval: result}} = Parser.parse_and_validate_expression("TRUE")
+      assert %Const{value: true} = result
     end
 
     test "should work with unknown constants" do
-      assert {:ok, %Const{value: "test", type: :text}} =
-               Parser.parse_and_validate_expression("'test'")
+      assert {:ok, %Expr{eval: result}} = Parser.parse_and_validate_expression("'test'")
+      assert %Const{value: "test", type: :text} = result
     end
 
     test "should correctly parse type casts on constants" do
-      assert {:error, {0, "unknown cast from type int4 to type bool"}} =
+      assert {:error, "At location 0: unknown cast from type int4 to type bool"} =
                Parser.parse_and_validate_expression("1::boolean", %{}, Env.empty())
     end
 
     test "should fail on references that don't exist" do
-      assert {:error, {0, "unknown reference test"}} =
+      assert {:error, "At location 0: unknown reference test"} =
                Parser.parse_and_validate_expression(~S|"test"|, %{})
     end
 
     test "should correctly parse a known reference" do
-      assert {:ok, %Ref{path: ["test"], type: :bool}} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(~S|"test"|, %{["test"] => :bool})
+
+      assert %Ref{path: ["test"], type: :bool} = result
     end
 
     test "should correctly parse a boolean function" do
-      assert {:ok,
-              %Func{name: "or", args: [%Ref{path: ["test"], type: :bool}, %Const{value: true}]}} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(~S|"test" OR true|, %{["test"] => :bool})
+
+      assert %Func{name: "or", args: [%Ref{path: ["test"], type: :bool}, %Const{value: true}]} =
+               result
     end
 
     test "should correctly parse a cast on reference" do
       env = Env.empty(explicit_casts: @int_to_bool_casts)
 
-      assert {:ok, %Func{name: "bool_to_int4", args: [%Ref{path: ["test"], type: :bool}]}} =
-               Parser.parse_and_validate_expression(~S|"test"::integer|, %{["test"] => :bool}, env)
+      assert {:ok, %Expr{eval: result}} =
+               Parser.parse_and_validate_expression(
+                 ~S|"test"::integer|,
+                 %{["test"] => :bool},
+                 env
+               )
+
+      assert %Func{name: "bool_to_int4", args: [%Ref{path: ["test"], type: :bool}]} = result
     end
 
     test "should correctly cast a const at compile time" do
       env = Env.empty(explicit_casts: @int_to_bool_casts)
 
-      assert {:ok, %Const{type: :int4, value: 1}} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(~S|true::integer|, %{["test"] => :bool}, env)
+
+      assert %Const{type: :int4, value: 1} = result
     end
 
     test "should correctly process a cast chain" do
       env = Env.empty(explicit_casts: @int_to_bool_casts)
 
-      assert {:ok, %Const{type: :int4, value: 1}} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(
                  ~S|true::integer::bool::integer::bool::integer|,
                  %{},
                  env
                )
+
+      assert %Const{type: :int4, value: 1} = result
     end
 
     test "should correctly parse a unary operator" do
@@ -78,8 +93,10 @@ defmodule Electric.Replication.Eval.ParserTest do
           }
         )
 
-      assert {:ok, %Func{name: "-", args: [%Ref{path: ["test"], type: :int4}]}} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(~S|- "test"|, %{["test"] => :int4}, env)
+
+      assert %Func{name: "-", args: [%Ref{path: ["test"], type: :int4}]} = result
     end
 
     test "should correctly parse a binary operator" do
@@ -92,12 +109,17 @@ defmodule Electric.Replication.Eval.ParserTest do
           }
         )
 
-      assert {:ok,
-              %Func{
-                name: "+",
-                args: [%Ref{path: ["test"], type: :int4}, %Ref{path: ["test"], type: :int4}]
-              }} =
-               Parser.parse_and_validate_expression(~S|"test" + "test"|, %{["test"] => :int4}, env)
+      assert {:ok, %Expr{eval: result}} =
+               Parser.parse_and_validate_expression(
+                 ~S|"test" + "test"|,
+                 %{["test"] => :int4},
+                 env
+               )
+
+      assert %Func{
+               name: "+",
+               args: [%Ref{path: ["test"], type: :int4}, %Ref{path: ["test"], type: :int4}]
+             } = result
     end
 
     test "should correctly cast unknowns to knowns for a binary operator" do
@@ -110,12 +132,13 @@ defmodule Electric.Replication.Eval.ParserTest do
           }
         )
 
-      assert {:ok,
-              %Func{
-                name: "+",
-                args: [%Ref{path: ["test"], type: :int4}, %Const{type: :int4, value: 4}]
-              }} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(~S|"test" + '4'|, %{["test"] => :int4}, env)
+
+      assert %Func{
+               name: "+",
+               args: [%Ref{path: ["test"], type: :int4}, %Const{type: :int4, value: 4}]
+             } = result
     end
 
     test "should correctly pick an overload between operators" do
@@ -135,17 +158,20 @@ defmodule Electric.Replication.Eval.ParserTest do
           }
         )
 
-      assert {:ok,
-              %Func{
-                name: "float8",
-                args: [%Ref{path: ["test"], type: :int4}, %Const{type: :float8, value: 4.0}]
-              }} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(~S|"test" + '4'|, %{["test"] => :int4}, env)
+
+      assert %Func{
+               name: "float8",
+               args: [%Ref{path: ["test"], type: :int4}, %Const{type: :float8, value: 4.0}]
+             } = result
     end
 
     test "should fail on a function with aggregation" do
-      assert {:error, {0, "aggregation is not supported in this context"}} =
-               Parser.parse_and_validate_expression(~S|ceil(DISTINCT "test")|, %{["test"] => :int4})
+      assert {:error, "At location 0: aggregation is not supported in this context"} =
+               Parser.parse_and_validate_expression(~S|ceil(DISTINCT "test")|, %{
+                 ["test"] => :int4
+               })
     end
 
     test "should correctly parse a function call" do
@@ -158,8 +184,10 @@ defmodule Electric.Replication.Eval.ParserTest do
           }
         )
 
-      assert {:ok, %Func{name: "-", args: [%Ref{path: ["test"], type: :int4}]}} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(~S|ceil("test")|, %{["test"] => :int4}, env)
+
+      assert %Func{name: "-", args: [%Ref{path: ["test"], type: :int4}]} = result
     end
 
     test "should reduce down immutable function calls that have only constants" do
@@ -179,8 +207,10 @@ defmodule Electric.Replication.Eval.ParserTest do
           }
         )
 
-      assert {:ok, %Const{value: 2, type: :int4}} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(~S|1 + 1|, %{["test"] => :int4}, env)
+
+      assert %Const{value: 2, type: :int4} = result
     end
 
     test "should work with IS DISTINCT FROM clauses" do
@@ -193,31 +223,37 @@ defmodule Electric.Replication.Eval.ParserTest do
           }
         )
 
-      assert {:ok, %Const{value: true, type: :bool}} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(
                  ~S|1 IS DISTINCT FROM NULL|,
                  %{["test"] => :int4},
                  env
                )
+
+      assert %Const{value: true, type: :bool} = result
     end
 
     test "should work with LIKE clauses" do
       env =
         Env.new()
 
-      assert {:ok, %Const{value: true, type: :bool}} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(
                  ~S|'hello' NOT LIKE 'hell\%' AND 'hello' LIKE 'h%o' |,
                  %{},
                  env
                )
+
+      assert %Const{value: true, type: :bool} = result
     end
 
     test "should work with explicit casts" do
       env = Env.new()
 
-      assert {:ok, %Const{value: true, type: :bool}} =
+      assert {:ok, %Expr{eval: result}} =
                Parser.parse_and_validate_expression(~S|1::boolean|, %{}, env)
+
+      assert %Const{value: true, type: :bool} = result
     end
   end
 end

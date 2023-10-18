@@ -493,7 +493,7 @@ defmodule Electric.Satellite.Serialization do
   end
 
   def decode_column_value!(val, type) when type in [:float8, :numeric] do
-    {_, ""} = Float.parse(val)
+    _ = String.to_float(val)
     val
   end
 
