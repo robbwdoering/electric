@@ -7,9 +7,9 @@ defmodule Electric.Replication.ShapesTest do
   alias Electric.Replication.Changes
   alias Electric.Satellite.Eval
 
-  describe "filter_changes_from_tx/2" do
+  describe "filter_map_changes_from_tx/2" do
     test "removes all changes when no requests are provided" do
-      assert %{changes: []} = Shapes.filter_changes_from_tx(tx([insert(%{})]), [])
+      assert %{changes: []} = Shapes.filter_map_changes_from_tx(tx([insert(%{})]), [])
     end
 
     test "never removes DDL changes" do
@@ -17,7 +17,7 @@ defmodule Electric.Replication.ShapesTest do
                insert(Electric.Postgres.Extension.ddl_relation(), %{})
                |> List.wrap()
                |> tx()
-               |> Shapes.filter_changes_from_tx([])
+               |> Shapes.filter_map_changes_from_tx([])
     end
 
     test "keeps around relations that satisfy shapes" do
@@ -28,7 +28,7 @@ defmodule Electric.Replication.ShapesTest do
                  insert({"public", "entries"}, %{}),
                  insert({"public", "other"}, %{})
                ])
-               |> Shapes.filter_changes_from_tx([shape])
+               |> Shapes.filter_map_changes_from_tx([shape])
     end
   end
 
@@ -227,7 +227,7 @@ defmodule Electric.Replication.ShapesTest do
       assert {:ok, [%Shapes.ShapeRequest{} = request]} =
                Shapes.validate_requests([request], origin)
 
-      assert %{"parent" => where} = request.where
+      assert %{{"public", "parent"} => where} = request.where
       assert where.query == ~S|value LIKE 'hello%'|
 
       assert {:ok, true} = Eval.Runner.execute(where.eval, %{["value"] => "hello world"})

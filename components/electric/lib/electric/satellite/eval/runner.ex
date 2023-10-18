@@ -1,6 +1,14 @@
 defmodule Electric.Satellite.Eval.Runner do
-  require Logger
   alias Electric.Satellite.Eval.Parser.{Const, Func, Ref}
+
+  @doc """
+  Generate a ref values object based on the record and a given table name
+  """
+  def record_to_ref_values(record, {_, table_name}) do
+    record
+    |> Enum.flat_map(fn {k, v} -> [{[k], v}, {[table_name, k], v}] end)
+    |> Map.new()
+  end
 
   @doc """
   Run a PG function parsed by `Electric.Satellite.Eval.Parser` based on the inputs

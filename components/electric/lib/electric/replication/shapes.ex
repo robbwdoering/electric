@@ -5,7 +5,9 @@ defmodule Electric.Replication.Shapes do
   import Electric.Postgres.Extension, only: [is_migration_relation: 1]
   alias Electric.Satellite.Eval
   alias Electric.Utils
+  alias Electric.Replication.Changes
   alias Electric.Replication.Changes.Transaction
+  alias Electric.Replication.Changes.UpdatedRecord
   alias Electric.Postgres.Extension.SchemaCache
   alias Electric.Postgres.Schema
   alias Electric.Replication.Shapes.ShapeRequest
@@ -17,14 +19,47 @@ defmodule Electric.Replication.Shapes do
 
   May result in a transaction with no changes.
   """
-  @spec filter_changes_from_tx(Transaction.t(), [term()]) :: Transaction.t()
-  def filter_changes_from_tx(%Transaction{changes: changes} = tx, shapes) do
-    %{tx | changes: Enum.filter(changes, &change_belongs_to_any_shape?(&1, shapes))}
+  @spec filter_map_changes_from_tx(Transaction.t(), [term()]) :: Transaction.t()
+  def filter_map_changes_from_tx(%Transaction{changes: changes} = tx, shapes) do
+    %{tx | changes: Enum.flat_map(changes, &filter_map_change_for_shapes(&1, shapes))}
   end
 
-  defp change_belongs_to_any_shape?(change, shapes) do
-    is_migration_relation(change.relation) or
-      Enum.any?(shapes, &ShapeRequest.change_belongs_to_shape?(&1, change))
+  # Don't touch migration relations
+  defp filter_map_change_for_shapes(change, _) when is_migration_relation(change.relation),
+    do: [change]
+
+  # Updated record may need to be converted to an INSERT or a DELETE instead, if record moves in/out of shape
+  defp filter_map_change_for_shapes(%UpdatedRecord{} = change, shapes) do
+    positions = Map.new(shapes, &{ShapeRequest.get_update_position_in_shape(&1, change), nil})
+
+    case positions do
+      # We have sent this row before in at least one shape, keep the update
+      %{in: _} -> [change]
+      # Some shapes observe a move-in, some observe a move-out, but we're keeping the update
+      %{move_in: _, move_out: _} -> [change]
+      # Next cases will do transformations that assume correct info about the client,
+      # which is impossible if at least one shape couldn't be calculated, so we skip the change
+      %{error: _} -> []
+      # If it's a move-in in all cases, convert update to insert
+      %{move_in: _} -> [Changes.convert_update(change, to: :new_record)]
+      # If it's a move-out in all cases, convert update to insert
+      %{move_out: _} -> [Changes.convert_update(change, to: :deleted_record)]
+      # Otherwise, change is not part of any shapes - skip it
+      _ -> []
+    end
+  end
+
+  # New/deleted records either do or do not fall into any one of the shapes
+  defp filter_map_change_for_shapes(change, shapes) do
+    record =
+      case change do
+        %Changes.NewRecord{record: x} -> x
+        %Changes.DeletedRecord{old_record: x} -> x
+      end
+
+    if Enum.any?(shapes, &ShapeRequest.record_belongs_to_shape?(&1, change.relation, record)),
+      do: [change],
+      else: []
   end
 
   @doc """
@@ -44,7 +79,8 @@ defmodule Electric.Replication.Shapes do
           {:ok, [ShapeRequest.t(), ...]} | {:error, [{String.t(), atom(), String.t()}]}
   def validate_requests(shape_requests, origin) do
     {:ok, _, schema} = SchemaCache.load(origin)
-    # TODO: Move this graph calculation to the SchemaCache when #191 is merged
+
+    # TODO: Move this graph calculation to the SchemaCache, because it's getting recalculated for no reason.
     graph = Schema.public_fk_graph(schema)
 
     shape_requests
@@ -111,6 +147,7 @@ defmodule Electric.Replication.Shapes do
       |> Enum.filter(&(&1.where != ""))
       |> Enum.map(& &1.tablename)
 
+    # FIXME: this is wrong, and should be the other way around. We can't have tables within the same request that are "children" of the filtered one
     case Enum.filter(selects_with_where, &(Graph.out_degree(graph, &1) > 0)) do
       [] ->
         :ok

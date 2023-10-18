@@ -2,6 +2,7 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
   use ExUnit.Case, async: false
   import Electric.Postgres.TestConnection
 
+  alias Electric.Replication.Shapes
   use Electric.Satellite.Protobuf
   alias Electric.Replication.Shapes.ShapeRequest
   alias Electric.Replication.Changes.NewRecord
@@ -12,25 +13,24 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
         included_tables: [{"public", "entries"}]
       }
 
-      assert ShapeRequest.change_belongs_to_shape?(shape, %NewRecord{
-               relation: {"public", "entries"}
-             })
+      assert ShapeRequest.record_belongs_to_shape?(shape, {"public", "entries"}, %{})
 
-      refute ShapeRequest.change_belongs_to_shape?(shape, %NewRecord{
-               relation: {"public", "other`"}
-             })
+      refute ShapeRequest.record_belongs_to_shape?(shape, {"public", "other"}, %{})
     end
   end
 
   describe "from_satellite_request/2" do
     test "builds a ShapeRequest struct for a basic full-table request, filling schemas" do
       assert %ShapeRequest{id: "id", included_tables: [{"public", "test"}]} =
-               ShapeRequest.from_satellite_request(%SatShapeReq{
-                 request_id: "id",
-                 shape_definition: %SatShapeDef{
-                   selects: [%SatShapeDef.Select{tablename: "test"}]
-                 }
-               }, %{})
+               ShapeRequest.from_satellite_request(
+                 %SatShapeReq{
+                   request_id: "id",
+                   shape_definition: %SatShapeDef{
+                     selects: [%SatShapeDef.Select{tablename: "test"}]
+                   }
+                 },
+                 %{}
+               )
     end
   end
 
@@ -71,16 +71,29 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
       schema: schema
     } do
       request = %ShapeRequest{id: "id", included_tables: [{"public", "documents"}]}
+      base_context = ShapeRequest.prepare_filtering_context([])
 
       assert {:ok, 1, [%NewRecord{}]} =
-               ShapeRequest.query_initial_data(request, conn, schema, origin, %{
-                 user_id: "00000000-0000-0000-0000-000000000000"
-               })
+               ShapeRequest.query_initial_data(
+                 request,
+                 conn,
+                 schema,
+                 origin,
+                 Map.merge(base_context, %{
+                   user_id: "00000000-0000-0000-0000-000000000000"
+                 })
+               )
 
       assert {:ok, 0, []} =
-               ShapeRequest.query_initial_data(request, conn, schema, origin, %{
-                 user_id: "00000000-0000-0000-0000-000000000001"
-               })
+               ShapeRequest.query_initial_data(
+                 request,
+                 conn,
+                 schema,
+                 origin,
+                 Map.merge(base_context, %{
+                   user_id: "00000000-0000-0000-0000-000000000001"
+                 })
+               )
     end
 
     @tag with_sql: """
@@ -95,8 +108,60 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
 
       assert {:ok, 0, []} =
                ShapeRequest.query_initial_data(request, conn, schema, origin, %{
-                 sent_tables: MapSet.new([{"public", "my_entries"}])
+                 fully_sent_tables: MapSet.new([{"public", "my_entries"}]),
+                 applied_where_clauses: %{}
                })
+    end
+
+    @tag with_sql: """
+         INSERT INTO public.my_entries (content) VALUES ('test content');
+         INSERT INTO public.my_entries (content) VALUES ('my content');
+         """
+    test "should correctly apply where clauses", %{
+      origin: origin,
+      conn: conn,
+      schema: schema
+    } do
+      select = %SatShapeDef.Select{tablename: "my_entries", where: "content LIKE 'test%'"}
+
+      {:ok, [request]} =
+        Shapes.validate_requests(
+          [%SatShapeReq{shape_definition: %SatShapeDef{selects: [select]}}],
+          origin
+        )
+
+      context = ShapeRequest.prepare_filtering_context([])
+
+      assert {:ok, 1, [%{record: %{"content" => "test content"}}]} =
+               ShapeRequest.query_initial_data(request, conn, schema, origin, context)
+    end
+
+    @tag with_sql: """
+         INSERT INTO public.my_entries (content) VALUES ('test content');
+         INSERT INTO public.my_entries (content) VALUES ('my content');
+         """
+    test "should correctly apply inverse of already sent where clauses", %{
+      origin: origin,
+      conn: conn,
+      schema: schema
+    } do
+      select = %SatShapeDef.Select{tablename: "my_entries", where: "content LIKE '%content'"}
+
+      {:ok, [request]} =
+        Shapes.validate_requests(
+          [%SatShapeReq{shape_definition: %SatShapeDef{selects: [select]}}],
+          origin
+        )
+
+      old_request = %ShapeRequest{
+        included_tables: [{"public", "my_entries"}],
+        where: %{{"public", "my_entries"} => %{query: "content LIKE 'test%'"}}
+      }
+
+      context = ShapeRequest.prepare_filtering_context([old_request])
+
+      assert {:ok, 1, [%{record: %{"content" => "my content"}}]} =
+               ShapeRequest.query_initial_data(request, conn, schema, origin, context)
     end
   end
 end

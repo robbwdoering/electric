@@ -105,6 +105,14 @@ defmodule Electric.Replication.Changes do
           }
   end
 
+  def convert_update(%UpdatedRecord{} = record, to: :new_record) do
+    %NewRecord{relation: record.relation, tags: record.tags, record: record.record}
+  end
+
+  def convert_update(%UpdatedRecord{} = record, to: :deleted_record) do
+    %DeletedRecord{relation: record.relation, tags: record.tags, old_record: record.old_record}
+  end
+
   defmodule TruncatedRelation do
     defstruct [:relation]
   end
