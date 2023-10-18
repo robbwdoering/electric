@@ -1,4 +1,4 @@
-defmodule Electric.Satellite.Eval.Env do
+defmodule Electric.Replication.Eval.Env do
   @moduledoc """
   Evaluation environment for parsing PostgreSQL expressions.
 

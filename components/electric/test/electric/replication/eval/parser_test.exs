@@ -1,10 +1,10 @@
-defmodule Electric.Satellite.Eval.ParserTest do
+defmodule Electric.Replication.Eval.ParserTest do
   use ExUnit.Case, async: true
 
-  alias Electric.Satellite.Eval.Env.ExplicitCasts
-  alias Electric.Satellite.Eval.Parser
-  alias Electric.Satellite.Eval.Parser.{Const, Func, Ref}
-  alias Electric.Satellite.Eval.Env
+  alias Electric.Replication.Eval.Env.ExplicitCasts
+  alias Electric.Replication.Eval.Parser
+  alias Electric.Replication.Eval.Parser.{Const, Func, Ref}
+  alias Electric.Replication.Eval.Env
 
   @int_to_bool_casts %{
     {:int4, :bool} => {ExplicitCasts, :int4_to_bool},

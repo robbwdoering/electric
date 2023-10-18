@@ -1,5 +1,5 @@
-defmodule Electric.Satellite.Eval.Env.KnownFunctions do
-  use Electric.Satellite.Eval.KnownDefinition
+defmodule Electric.Replication.Eval.Env.KnownFunctions do
+  use Electric.Replication.Eval.KnownDefinition
 
   alias Electric.Satellite.PostgresInterop.Casting
 

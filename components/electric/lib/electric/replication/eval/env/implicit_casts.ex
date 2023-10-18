@@ -1,7 +1,7 @@
-defmodule Electric.Satellite.Eval.Env.ImplicitCasts do
+defmodule Electric.Replication.Eval.Env.ImplicitCasts do
   @moduledoc """
   List of all implicit casts in (raw) PostgreSQL. Does not account for custom casts, which
-  are discouraged anyway. If needed, this list can be extended in `Electric.Satellite.Eval.Env.new/1`
+  are discouraged anyway. If needed, this list can be extended in `Electric.Replication.Eval.Env.new/1`
 
   This list of implicit casts functions as-is, meaning that in Elixir land, we can just "relabel" the type,
   without doing any actual conversion, and it will work.

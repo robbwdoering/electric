@@ -18,7 +18,7 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
   alias Electric.Postgres.ShadowTableTransformation
   alias Electric.Postgres.Schema
   alias Electric.Replication.Changes
-  alias Electric.Satellite.Eval
+  alias Electric.Replication.Eval
   use Electric.Satellite.Protobuf
 
   defstruct [:id, :included_tables, where: %{}]

@@ -5,7 +5,7 @@ defmodule Electric.Replication.ShapesTest do
   import ElectricTest.SetupHelpers
   alias Electric.Replication.Shapes
   alias Electric.Replication.Changes
-  alias Electric.Satellite.Eval
+  alias Electric.Replication.Eval
 
   describe "filter_map_changes_from_tx/2" do
     test "removes all changes when no requests are provided" do

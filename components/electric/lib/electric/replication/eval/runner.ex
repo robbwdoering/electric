@@ -1,5 +1,5 @@
-defmodule Electric.Satellite.Eval.Runner do
-  alias Electric.Satellite.Eval.Parser.{Const, Func, Ref}
+defmodule Electric.Replication.Eval.Runner do
+  alias Electric.Replication.Eval.Parser.{Const, Func, Ref}
 
   @doc """
   Generate a ref values object based on the record and a given table name
@@ -11,7 +11,7 @@ defmodule Electric.Satellite.Eval.Runner do
   end
 
   @doc """
-  Run a PG function parsed by `Electric.Satellite.Eval.Parser` based on the inputs
+  Run a PG function parsed by `Electric.Replication.Eval.Parser` based on the inputs
   """
   @spec execute(struct(), map()) :: {:ok, term()} | {:error, {%Func{}, [term()]}}
   def execute(tree, ref_values) do

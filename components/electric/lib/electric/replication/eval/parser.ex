@@ -1,9 +1,9 @@
-defmodule Electric.Satellite.Eval.Parser do
+defmodule Electric.Replication.Eval.Parser do
   alias Electric.Satellite.PostgresInterop.Casting
   alias Electric.Utils
   import Electric.Satellite.PostgresInterop.Casting
-  alias Electric.Satellite.Eval.Env
-  alias Electric.Satellite.Eval.Lookups
+  alias Electric.Replication.Eval.Env
+  alias Electric.Replication.Eval.Lookups
 
   defmodule Const do
     defstruct [:value, :type, location: 0]

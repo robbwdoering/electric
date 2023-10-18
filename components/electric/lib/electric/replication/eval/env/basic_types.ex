@@ -1,4 +1,4 @@
-defmodule Electric.Satellite.Eval.Env.BasicTypes do
+defmodule Electric.Replication.Eval.Env.BasicTypes do
   @moduledoc """
   This module describes basic types, their categories, and if they are preferred within said category.
 

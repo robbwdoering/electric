@@ -1,6 +1,6 @@
-defmodule Electric.Satellite.Eval.Lookups do
+defmodule Electric.Replication.Eval.Lookups do
   alias Electric.Utils
-  alias Electric.Satellite.Eval.Env
+  alias Electric.Replication.Eval.Env
 
   @doc """
   Given multiple possible operator overloads (same name and arity), try to

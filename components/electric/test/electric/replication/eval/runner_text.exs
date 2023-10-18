@@ -1,8 +1,8 @@
-defmodule Electric.Satellite.Eval.RunnerTest do
+defmodule Electric.Replication.Eval.RunnerTest do
   use ExUnit.Case, async: true
 
-  alias Electric.Satellite.Eval.Runner
-  alias Electric.Satellite.Eval.Parser
+  alias Electric.Replication.Eval.Runner
+  alias Electric.Replication.Eval.Parser
 
   describe "execute/2" do
     test "should correctly execute constant expressions" do

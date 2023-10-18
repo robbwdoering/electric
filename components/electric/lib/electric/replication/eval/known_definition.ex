@@ -1,15 +1,15 @@
-defmodule Electric.Satellite.Eval.KnownDefinition do
+defmodule Electric.Replication.Eval.KnownDefinition do
   @moduledoc """
   Special module to be `use`-d to define translation of PostgreSQL
   operators and functions into Elixir calls.
   """
   defmacro __using__(_) do
     quote do
-      import Electric.Satellite.Eval.KnownDefinition
+      import Electric.Replication.Eval.KnownDefinition
 
       Module.register_attribute(__MODULE__, :known_postgres_implementations, accumulate: true)
 
-      @before_compile {Electric.Satellite.Eval.KnownDefinition, :before_compile}
+      @before_compile {Electric.Replication.Eval.KnownDefinition, :before_compile}
     end
   end
 

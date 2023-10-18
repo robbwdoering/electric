@@ -1,4 +1,4 @@
-defmodule Electric.Satellite.Eval.Env.ExplicitCasts do
+defmodule Electric.Replication.Eval.Env.ExplicitCasts do
   @moduledoc """
   Postgres has explicit casts, achievable via `::type` calls.
   This module defines implementations for a subset of known ones.

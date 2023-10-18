@@ -3,7 +3,7 @@ defmodule Electric.Replication.Shapes do
   Context to work with replication shapes.
   """
   import Electric.Postgres.Extension, only: [is_migration_relation: 1]
-  alias Electric.Satellite.Eval
+  alias Electric.Replication.Eval
   alias Electric.Utils
   alias Electric.Replication.Changes
   alias Electric.Replication.Changes.Transaction
