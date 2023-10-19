@@ -1,4 +1,4 @@
-defmodule Electric.Satellite.PostgresInterop.Casting do
+defmodule Electric.Replication.PostgresInterop.Casting do
   @int2_range -32768..32767
   @int4_range -2_147_483_648..2_147_483_647
   @int8_range -9_223_372_036_854_775_808..9_223_372_036_854_775_807

@@ -1,7 +1,7 @@
 defmodule Electric.Replication.Eval.Parser do
-  alias Electric.Satellite.PostgresInterop.Casting
   alias Electric.Utils
-  import Electric.Satellite.PostgresInterop.Casting
+  alias Electric.Replication.PostgresInterop.Casting
+  import Electric.Replication.PostgresInterop.Casting
   alias Electric.Replication.Eval.Env
   alias Electric.Replication.Eval.Lookups
   alias Electric.Replication.Eval.Expr
@@ -22,8 +22,6 @@ defmodule Electric.Replication.Eval.Parser do
     defstruct [:args, :type, :implementation, :name, strict?: true, immutable?: true, location: 0]
   end
 
-  @type pg_type() :: atom()
-
   @valid_types ~w[
     bool
     date
@@ -37,7 +35,7 @@ defmodule Electric.Replication.Eval.Parser do
   ]
 
   @type tree_part :: %Const{} | %Ref{} | %Func{}
-  @type refs_map :: %{optional([String.t(), ...]) => pg_type()}
+  @type refs_map :: %{optional([String.t(), ...]) => Env.pg_type()}
 
   @spec parse_and_validate_expression(String.t(), refs_map(), Env.t()) ::
           {:ok, Expr.t()} | {:error, String.t()}
@@ -63,12 +61,16 @@ defmodule Electric.Replication.Eval.Parser do
     end
   end
 
+  @spec parse_and_validate_expression!(String.t(), refs_map(), Env.t()) :: Expr.t()
   def parse_and_validate_expression!(query, refs \\ %{}, env \\ Env.new()) do
     {:ok, value} = parse_and_validate_expression(query, refs, env)
     value
   end
 
   @prefix_length String.length("SELECT 1 WHERE ")
+
+  @spec check_and_parse_stmt(String.t(), refs_map(), Env.t()) ::
+          {:ok, tree_part()} | {:error, term()}
   defp check_and_parse_stmt(stmt, refs, env) do
     extra_suffixes =
       stmt
@@ -87,7 +89,7 @@ defmodule Electric.Replication.Eval.Parser do
   end
 
   @spec do_parse_and_validate_tree(struct(), map(), map()) ::
-          {:ok, %UnknownConst{} | %Const{} | %Ref{} | %Func{}}
+          {:ok, %UnknownConst{} | tree_part()}
           | {:error, {non_neg_integer(), String.t()}}
   defp do_parse_and_validate_tree(%PgQuery.Node{node: {_, node}}, refs, env),
     do: do_parse_and_validate_tree(node, refs, env)

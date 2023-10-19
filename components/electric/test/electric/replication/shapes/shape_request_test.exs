@@ -253,6 +253,13 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
       conn: conn,
       schema: schema
     } do
+      old_request = %ShapeRequest{
+        included_tables: [{"public", "my_entries"}],
+        where: %{{"public", "my_entries"} => %{query: "content LIKE 'test%'"}}
+      }
+
+      context = ShapeRequest.prepare_filtering_context([old_request])
+
       select = %SatShapeDef.Select{tablename: "my_entries", where: "content LIKE '%content'"}
 
       {:ok, [request]} =
@@ -260,13 +267,6 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
           [%SatShapeReq{shape_definition: %SatShapeDef{selects: [select]}}],
           origin
         )
-
-      old_request = %ShapeRequest{
-        included_tables: [{"public", "my_entries"}],
-        where: %{{"public", "my_entries"} => %{query: "content LIKE 'test%'"}}
-      }
-
-      context = ShapeRequest.prepare_filtering_context([old_request])
 
       assert {:ok, 1, [%{record: %{"content" => "my content"}}]} =
                ShapeRequest.query_initial_data(request, conn, schema, origin, context)
