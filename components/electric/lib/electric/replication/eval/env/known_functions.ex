@@ -19,6 +19,8 @@ defmodule Electric.Replication.Eval.Env.KnownFunctions do
   defpostgres "- *numeric_type* -> *numeric_type*", delegate: &Kernel.-/1
   defpostgres "*numeric_type* + *numeric_type* -> *numeric_type*", delegate: &Kernel.+/2
   defpostgres "*numeric_type* - *numeric_type* -> *numeric_type*", delegate: &Kernel.-/2
+  defpostgres "*numeric_type* > *numeric_type* -> bool", delegate: &:erlang.>/2
+  defpostgres "*numeric_type* < *numeric_type* -> bool", delegate: &:erlang.</2
 
   ## String functions
 

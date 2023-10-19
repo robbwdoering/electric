@@ -50,6 +50,11 @@ defmodule Electric.Replication.Shapes.ShapeRequest do
     end
   end
 
+  @doc """
+  Check if the given update moves a row into the shape, out of the shape, or keeps it in or out of the shape.
+
+  If either `old_record` or `record` fields cannot be converted to Elixir-native types, return `:error`.
+  """
   @spec get_update_position_in_shape(t(), Changes.UpdatedRecord.t()) ::
           :in | :not_in | :move_in | :move_out | :error
   def get_update_position_in_shape(

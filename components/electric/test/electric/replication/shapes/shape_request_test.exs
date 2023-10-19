@@ -2,10 +2,12 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
   use ExUnit.Case, async: false
   import Electric.Postgres.TestConnection
 
+  alias Electric.Replication.Eval.Parser
   alias Electric.Replication.Shapes
   use Electric.Satellite.Protobuf
   alias Electric.Replication.Shapes.ShapeRequest
   alias Electric.Replication.Changes.NewRecord
+  alias Electric.Replication.Changes.UpdatedRecord
 
   describe "change_belongs_to_shape?/2" do
     test "for full-table requests, verifies that change belongs to one of the tables" do
@@ -16,6 +18,112 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
       assert ShapeRequest.record_belongs_to_shape?(shape, {"public", "entries"}, %{})
 
       refute ShapeRequest.record_belongs_to_shape?(shape, {"public", "other"}, %{})
+    end
+
+    test "for requests with where clauses, tries executing the where statement" do
+      shape = %ShapeRequest{
+        included_tables: [{"public", "entries"}],
+        where: %{
+          {"public", "entries"} =>
+            Parser.parse_and_validate_expression!("value > 10", %{["value"] => :int4})
+        }
+      }
+
+      assert ShapeRequest.record_belongs_to_shape?(shape, {"public", "entries"}, %{
+               "value" => "11"
+             })
+
+      refute ShapeRequest.record_belongs_to_shape?(shape, {"public", "entries"}, %{"value" => "9"})
+    end
+
+    test "for requests with where clauses, returns false when failing to parse record" do
+      shape = %ShapeRequest{
+        included_tables: [{"public", "entries"}],
+        where: %{
+          {"public", "entries"} =>
+            Parser.parse_and_validate_expression!("value > 10", %{["value"] => :int4})
+        }
+      }
+
+      refute ShapeRequest.record_belongs_to_shape?(shape, {"public", "entries"}, %{
+               "value" => "not int"
+             })
+    end
+  end
+
+  describe "get_update_position_in_shape/2" do
+    setup _ do
+      [
+        shape: %ShapeRequest{
+          included_tables: [{"public", "entries"}],
+          where: %{
+            {"public", "entries"} =>
+              Parser.parse_and_validate_expression!("value > 10", %{["value"] => :int4})
+          }
+        }
+      ]
+    end
+
+    test "should mark update as not in shape if neither old nor new record matches the where clause",
+         ctx do
+      change = %UpdatedRecord{
+        relation: {"public", "entries"},
+        old_record: %{"value" => "1"},
+        record: %{"value" => "2"}
+      }
+
+      assert :not_in == ShapeRequest.get_update_position_in_shape(ctx.shape, change)
+    end
+
+    test "should mark update as in shape if both old and new records match the where clause",
+         ctx do
+      change = %UpdatedRecord{
+        relation: {"public", "entries"},
+        old_record: %{"value" => "11"},
+        record: %{"value" => "12"}
+      }
+
+      assert :in == ShapeRequest.get_update_position_in_shape(ctx.shape, change)
+    end
+
+    test "should mark update as moving into shape if old doesn't match the where clause, but new does",
+         ctx do
+      change = %UpdatedRecord{
+        relation: {"public", "entries"},
+        old_record: %{"value" => "1"},
+        record: %{"value" => "12"}
+      }
+
+      assert :move_in == ShapeRequest.get_update_position_in_shape(ctx.shape, change)
+    end
+
+    test "should mark update as moving out of shape if old does match the where clause, but new doesn't",
+         ctx do
+      change = %UpdatedRecord{
+        relation: {"public", "entries"},
+        old_record: %{"value" => "11"},
+        record: %{"value" => "1"}
+      }
+
+      assert :move_out == ShapeRequest.get_update_position_in_shape(ctx.shape, change)
+    end
+
+    test "should mark update as an error if either of records cannot be parsed into Elixir types",
+         ctx do
+      change = %UpdatedRecord{
+        relation: {"public", "entries"},
+        old_record: %{"value" => "not int"},
+        record: %{"value" => "1"}
+      }
+
+      other_change = %UpdatedRecord{
+        relation: {"public", "entries"},
+        old_record: %{"value" => "1"},
+        record: %{"value" => "not int"}
+      }
+
+      assert :error == ShapeRequest.get_update_position_in_shape(ctx.shape, change)
+      assert :error == ShapeRequest.get_update_position_in_shape(ctx.shape, other_change)
     end
   end
 

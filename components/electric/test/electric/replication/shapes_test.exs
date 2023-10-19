@@ -1,13 +1,36 @@
 defmodule Electric.Replication.ShapesTest do
   use ExUnit.Case, async: true
 
+  alias Electric.Replication.Changes.DeletedRecord
+  alias Electric.Replication.Changes.NewRecord
   use Electric.Satellite.Protobuf
   import ElectricTest.SetupHelpers
   alias Electric.Replication.Shapes
+  alias Electric.Replication.Shapes.ShapeRequest
   alias Electric.Replication.Changes
   alias Electric.Replication.Eval
 
   describe "filter_map_changes_from_tx/2" do
+    setup _ do
+      shape = %ShapeRequest{
+        included_tables: [{"public", "entries"}],
+        where: %{
+          {"public", "entries"} =>
+            Eval.Parser.parse_and_validate_expression!("value > 10", %{["value"] => :int4})
+        }
+      }
+
+      second_shape = %ShapeRequest{
+        included_tables: [{"public", "entries"}],
+        where: %{
+          {"public", "entries"} =>
+            Eval.Parser.parse_and_validate_expression!("other > 10", %{["other"] => :int4})
+        }
+      }
+
+      [shape: shape, second_shape: second_shape]
+    end
+
     test "removes all changes when no requests are provided" do
       assert %{changes: []} = Shapes.filter_map_changes_from_tx(tx([insert(%{})]), [])
     end
@@ -29,6 +52,87 @@ defmodule Electric.Replication.ShapesTest do
                  insert({"public", "other"}, %{})
                ])
                |> Shapes.filter_map_changes_from_tx([shape])
+    end
+
+    test "filters inserts and deletes based on where clause", ctx do
+      tx =
+        tx([
+          insert(%{"value" => "1"}),
+          insert(%{"value" => "11"}),
+          delete(%{"value" => "1"}),
+          delete(%{"value" => "11"})
+        ])
+
+      assert %{
+               changes: [
+                 %NewRecord{record: %{"value" => "11"}},
+                 %DeletedRecord{old_record: %{"value" => "11"}}
+               ]
+             } = Shapes.filter_map_changes_from_tx(tx, [ctx.shape])
+    end
+
+    test "filters non-move updates based on where clause", ctx do
+      update_to_keep = update(%{"value" => "11"}, %{"value" => "12"})
+
+      tx =
+        tx([
+          update(%{"value" => "1"}, %{"value" => "2"}),
+          update_to_keep
+        ])
+
+      assert %{changes: [^update_to_keep]} = Shapes.filter_map_changes_from_tx(tx, [ctx.shape])
+    end
+
+    test "converts move updates based on where clause", ctx do
+      tx =
+        tx([
+          update(%{"value" => "1"}, %{"value" => "11"}),
+          update(%{"value" => "12"}, %{"value" => "2"})
+        ])
+
+      assert %{
+               changes: [
+                 %NewRecord{record: %{"value" => "11"}},
+                 %DeletedRecord{old_record: %{"value" => "12"}}
+               ]
+             } = Shapes.filter_map_changes_from_tx(tx, [ctx.shape])
+    end
+
+    test "keeps update as-is if it's still in at least one shape despite a move-out", ctx do
+      update = update(%{"value" => "12", "other" => "12"}, %{"value" => "12", "other" => "1"})
+      tx = tx([update])
+
+      assert %{changes: [^update]} =
+               Shapes.filter_map_changes_from_tx(tx, [ctx.shape, ctx.second_shape])
+    end
+
+    test "keeps update as-is if it's a move-in and move-out for different shapes", ctx do
+      update = update(%{"value" => "1", "other" => "12"}, %{"value" => "12", "other" => "1"})
+      tx = tx([update])
+
+      assert %{changes: [^update]} =
+               Shapes.filter_map_changes_from_tx(tx, [ctx.shape, ctx.second_shape])
+    end
+
+    test "keeps update as-is if it's still in at least one shape despite a failed parsing for another shape",
+         ctx do
+      update =
+        update(%{"value" => "12", "other" => "not int"}, %{"value" => "12", "other" => "1"})
+
+      tx = tx([update])
+
+      assert %{changes: [^update]} =
+               Shapes.filter_map_changes_from_tx(tx, [ctx.shape, ctx.second_shape])
+    end
+
+    test "filters the update if there is no way to keep update as-is",
+         ctx do
+      update = update(%{"value" => "12", "other" => "not int"}, %{"value" => "1", "other" => "1"})
+      tx = tx([update])
+
+      # Update fails to parse for second shape, but the first shape is `move_out`, so we can't know how to present the update, safer to skip
+      assert %{changes: []} =
+               Shapes.filter_map_changes_from_tx(tx, [ctx.shape, ctx.second_shape])
     end
   end
 
@@ -239,4 +343,10 @@ defmodule Electric.Replication.ShapesTest do
 
   defp insert(rel \\ {"public", "entries"}, record),
     do: %Changes.NewRecord{relation: rel, record: record}
+
+  defp delete(rel \\ {"public", "entries"}, record),
+    do: %Changes.DeletedRecord{relation: rel, old_record: record}
+
+  defp update(rel \\ {"public", "entries"}, old_record, record),
+    do: %Changes.UpdatedRecord{relation: rel, old_record: old_record, record: record}
 end
