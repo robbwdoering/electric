@@ -1,4 +1,5 @@
 defmodule Electric.Replication.Eval.Runner do
+  require Logger
   alias Electric.Replication.Eval.Expr
   alias Electric.Replication.Eval.Env
   alias Electric.Replication.Eval.Parser.{Const, Func, Ref}
@@ -19,8 +20,15 @@ defmodule Electric.Replication.Eval.Runner do
         end
 
       case Env.parse_const(env, value, type) do
-        {:ok, value} -> {:cont, {:ok, Map.put(acc, path, value)}}
-        :error -> {:halt, :error}
+        {:ok, value} ->
+          {:cont, {:ok, Map.put(acc, path, value)}}
+
+        :error ->
+          Logger.warning(
+            "Could not parse #{inspect(value)} as #{inspect(type)} while casting #{inspect(path)} of table #{table_name}"
+          )
+
+          {:halt, :error}
       end
     end)
   end

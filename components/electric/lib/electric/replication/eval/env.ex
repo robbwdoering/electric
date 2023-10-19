@@ -124,9 +124,12 @@ defmodule Electric.Replication.Eval.Env do
   @doc """
   Parse an unknown value constant as a known type in the current environment.
   """
-  # Text is special-cased as never needing parsing
   @spec parse_const(t(), String.t(), pg_type()) :: {:ok, term()} | :error
+  # Text is special-cased as never needing parsing
   def parse_const(%__MODULE__{}, value, :text), do: {:ok, value}
+  def parse_const(%__MODULE__{}, value, :varchar), do: {:ok, value}
+  def parse_const(%__MODULE__{}, value, :name), do: {:ok, value}
+  def parse_const(%__MODULE__{}, value, :bpchar), do: {:ok, value}
 
   def parse_const(%__MODULE__{funcs: funcs}, value, type) do
     with {:ok, overloads} <- Map.fetch(funcs, {to_string(type), 1}),
