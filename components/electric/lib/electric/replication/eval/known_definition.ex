@@ -251,7 +251,7 @@ defmodule Electric.Replication.Eval.KnownDefinition do
           description:
             "defpostgres function cannot have more that one type category in definition, got #{inspect(keys)}"
 
-      [category] when category not in ~w|*numeric_type* *integer_type*| ->
+      [category] when category not in ~w|*numeric_type* *integral_type*| ->
         raise CompileError,
           line: line,
           description: "unknown category #{category} - cannot expand definitions"

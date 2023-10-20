@@ -69,7 +69,7 @@ defmodule Electric.Replication.Eval.Parser do
 
   @prefix_length String.length("SELECT 1 WHERE ")
 
-  @spec check_and_parse_stmt(String.t(), refs_map(), Env.t()) ::
+  @spec check_and_parse_stmt(struct(), refs_map(), Env.t()) ::
           {:ok, tree_part()} | {:error, term()}
   defp check_and_parse_stmt(stmt, refs, env) do
     extra_suffixes =
