@@ -151,16 +151,16 @@ defmodule Electric.Replication.Eval.Parser do
          {:ok, type} <- get_type_from_pg_name(type_name) do
       case arg do
         %UnknownConst{} = unknown ->
-          explicit_cast_const(infer_unknown(unknown), type, env.explicit_casts)
+          explicit_cast_const(infer_unknown(unknown), type, env)
 
         %{type: ^type} = subtree ->
           {:ok, subtree}
 
         %Const{} = known ->
-          explicit_cast_const(known, type, env.explicit_casts)
+          explicit_cast_const(known, type, env)
 
         %{type: _} = subtree ->
-          as_dynamic_cast(subtree, type, env.explicit_casts)
+          as_dynamic_cast(subtree, type, env)
       end
     end
   catch
@@ -283,21 +283,17 @@ defmodule Electric.Replication.Eval.Parser do
     end
   end
 
-  defp explicit_cast_const(%Const{type: type, value: value} = const, target_type, casts) do
-    case find_cast_function(casts, type, target_type) do
-      {:ok, {module, fun}} ->
-        case apply(module, fun, [value]) do
-          {:ok, result} ->
-            {:ok, %Const{type: target_type, value: result, location: const.location}}
+  defp explicit_cast_const(%Const{type: type, value: value} = const, target_type, %Env{} = env) do
+    with {:ok, %Func{} = func} <- as_dynamic_cast(const, target_type, env) do
+      case try_applying(%{func | args: [value]}) do
+        {:ok, const} ->
+          const
 
-          :error ->
-            {:error,
-             {const.location,
-              "could not cast value #{inspect(value)} from #{type} to #{target_type}"}}
-        end
-
-      :error ->
-        {:error, {const.location, "unknown cast from type #{type} to type #{target_type}"}}
+        {:error, _} ->
+          {:error,
+           {const.location,
+            "could not cast value #{inspect(value)} from #{type} to #{target_type}"}}
+      end
     end
   end
 
@@ -325,23 +321,48 @@ defmodule Electric.Replication.Eval.Parser do
     end
   end
 
-  defp find_cast_function(casts, from_type, to_type) do
-    # I know this looks like a no-op `with`, but I want this function to encapsulate the access
-    with {:ok, {module, fun}} <- Map.fetch(casts, {from_type, to_type}) do
-      {:ok, {module, fun}}
+  defp find_cast_function(%Env{} = env, from_type, :text) do
+    out_func = {"#{from_type}out", 1}
+
+    case Map.fetch(env.implicit_casts, {from_type, :text}) do
+      {:ok, :as_is} ->
+        {:ok, :as_is}
+
+      :error ->
+        with {:ok, [%{args: [^from_type]} = impl]} <- Map.fetch(env.funcs, out_func) do
+          {:ok, impl}
+        end
     end
   end
 
-  defp as_dynamic_cast(%{type: type, location: loc} = arg, target_type, casts) do
-    case find_cast_function(casts, type, target_type) do
-      {:ok, {module, fun}} ->
+  defp find_cast_function(%Env{} = env, from_type, to_type) do
+    # I know this looks like a no-op `with`, but I want this function to encapsulate the access
+    case Map.fetch(env.implicit_casts, {from_type, to_type}) do
+      {:ok, :as_is} ->
+        {:ok, :as_is}
+
+      :error ->
+        with {:ok, {module, fun}} <- Map.fetch(env.explicit_casts, {from_type, to_type}) do
+          {:ok, {module, fun}}
+        end
+    end
+  end
+
+  @spec as_dynamic_cast(tree_part(), Env.pg_type(), Env.t()) ::
+          {:ok, tree_part()} | {:error, {non_neg_integer(), String.t()}}
+  defp as_dynamic_cast(%{type: type, location: loc} = arg, target_type, env) do
+    case find_cast_function(env, type, target_type) do
+      {:ok, :as_is} ->
+        {:ok, %{arg | type: target_type}}
+
+      {:ok, impl} ->
         {:ok,
          %Func{
            location: loc,
            type: target_type,
            args: [arg],
-           implementation: {module, fun},
-           name: to_string(fun)
+           implementation: impl,
+           name: "cast to #{inspect(target_type)}"
          }}
 
       :error ->

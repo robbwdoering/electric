@@ -2,6 +2,7 @@ defmodule Electric.Replication.Eval.Env.KnownFunctions do
   use Electric.Replication.Eval.KnownDefinition
 
   alias Electric.Replication.PostgresInterop.Casting
+  alias Electric.Replication.Eval.Env.BasicTypes
 
   ## "input" functions
 
@@ -12,6 +13,21 @@ defmodule Electric.Replication.Eval.Env.KnownFunctions do
   defpostgres "float8(text) -> float8", delegate: &Casting.parse_float8/1
   defpostgres "numeric(text) -> numeric", delegate: &Casting.parse_float8/1
   defpostgres "bool(text) -> bool", delegate: &Casting.parse_bool/1
+  defpostgres "uuid(text) -> uuid", delegate: &Casting.parse_uuid/1
+
+  ## "output" functions
+
+  defpostgres "int2out(int2) -> text", delegate: &Integer.to_string/1
+  defpostgres "int4out(int4) -> text", delegate: &Integer.to_string/1
+  defpostgres "int8out(int8) -> text", delegate: &Integer.to_string/1
+  defpostgres "float4out(float4) -> text", delegate: &Float.to_string/1
+  defpostgres "float8out(float8) -> text", delegate: &Float.to_string/1
+  defpostgres "numericout(numeric) -> text", delegate: &Float.to_string/1
+  defpostgres "boolout(bool) -> text" do
+    def bool_out(true), do: "t"
+    def bool_out(false), do: "f"
+  end
+  defpostgres "uuidout(uuid) -> text", delegate: &BasicTypes.noop/1
 
   ## Numeric functions
 

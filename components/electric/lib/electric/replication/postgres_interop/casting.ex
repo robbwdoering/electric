@@ -1,4 +1,5 @@
 defmodule Electric.Replication.PostgresInterop.Casting do
+  alias Electric.Utils
   @int2_range -32768..32767
   @int4_range -2_147_483_648..2_147_483_647
   @int8_range -9_223_372_036_854_775_808..9_223_372_036_854_775_807
@@ -40,6 +41,11 @@ defmodule Electric.Replication.PostgresInterop.Casting do
 
   def parse_bool("t"), do: true
   def parse_bool("f"), do: false
+
+  def parse_uuid(maybe_uuid) do
+    {:ok, value} = Utils.validate_uuid(maybe_uuid)
+    value
+  end
 
   @doc """
   LIKE function from SQL. Case sensitive by default.
