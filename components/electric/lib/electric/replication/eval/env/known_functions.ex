@@ -23,10 +23,12 @@ defmodule Electric.Replication.Eval.Env.KnownFunctions do
   defpostgres "float4out(float4) -> text", delegate: &Float.to_string/1
   defpostgres "float8out(float8) -> text", delegate: &Float.to_string/1
   defpostgres "numericout(numeric) -> text", delegate: &Float.to_string/1
+
   defpostgres "boolout(bool) -> text" do
     def bool_out(true), do: "t"
     def bool_out(false), do: "f"
   end
+
   defpostgres "uuidout(uuid) -> text", delegate: &BasicTypes.noop/1
 
   ## Numeric functions
