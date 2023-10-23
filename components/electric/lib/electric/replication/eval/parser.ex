@@ -287,7 +287,7 @@ defmodule Electric.Replication.Eval.Parser do
     with {:ok, %Func{} = func} <- as_dynamic_cast(const, target_type, env) do
       case try_applying(%{func | args: [value]}) do
         {:ok, const} ->
-          const
+          {:ok, const}
 
         {:error, _} ->
           {:error,
@@ -362,7 +362,7 @@ defmodule Electric.Replication.Eval.Parser do
            type: target_type,
            args: [arg],
            implementation: impl,
-           name: "cast to #{inspect(target_type)}"
+           name: "#{type}_to_#{target_type}"
          }}
 
       :error ->

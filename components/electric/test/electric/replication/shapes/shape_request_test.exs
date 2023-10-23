@@ -222,8 +222,8 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
     end
 
     @tag with_sql: """
-         INSERT INTO public.my_entries (content) VALUES ('test content');
-         INSERT INTO public.my_entries (content) VALUES ('my content');
+         INSERT INTO public.my_entries (id, content) VALUES (gen_random_uuid(), 'test content');
+         INSERT INTO public.my_entries (id, content) VALUES (gen_random_uuid(), 'my content');
          """
     test "should correctly apply where clauses", %{
       origin: origin,
@@ -245,8 +245,8 @@ defmodule Electric.Replication.Shapes.ShapeRequestTest do
     end
 
     @tag with_sql: """
-         INSERT INTO public.my_entries (content) VALUES ('test content');
-         INSERT INTO public.my_entries (content) VALUES ('my content');
+         INSERT INTO public.my_entries (id, content) VALUES (gen_random_uuid(), 'test content');
+         INSERT INTO public.my_entries (id, content) VALUES (gen_random_uuid(), 'my content');
          """
     test "should correctly apply inverse of already sent where clauses", %{
       origin: origin,

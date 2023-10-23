@@ -564,7 +564,10 @@ defmodule Electric.Satellite.SubscriptionsTest do
         jane_nobody_uuid = uuid4()
 
         {:ok, 1} =
-          :epgsql.equery(pg_conn, "INSERT INTO public.my_entries (content) VALUES ($1)", ["WRONG"])
+          :epgsql.equery(pg_conn, "INSERT INTO public.my_entries (id, content) VALUES ($1, $2)", [
+            uuid4(),
+            "WRONG"
+          ])
 
         {:ok, 2} =
           :epgsql.equery(

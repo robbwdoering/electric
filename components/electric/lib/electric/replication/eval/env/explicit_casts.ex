@@ -45,11 +45,10 @@ defmodule Electric.Replication.Eval.Env.ExplicitCasts do
   | xid8      | xid            |               |
   """
 
-  def bool_to_int4(true), do: {:ok, 1}
-  def bool_to_int4(false), do: {:ok, 0}
-  def int4_to_bool(0), do: {:ok, false}
-  def int4_to_bool(x) when is_integer(x) and x > 0, do: {:ok, true}
-  def int4_to_bool(x) when is_integer(x), do: :error
+  def bool_to_int4(true), do: 1
+  def bool_to_int4(false), do: 0
+  def int4_to_bool(0), do: false
+  def int4_to_bool(x) when is_integer(x) and x > 0, do: true
 
   # Convert the table from moduledoc into a map
   @implicit_casts @moduledoc
