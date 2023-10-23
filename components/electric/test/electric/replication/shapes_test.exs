@@ -256,14 +256,17 @@ defmodule Electric.Replication.ShapesTest do
       ])
     end
 
-    test "should fail on tables that have outgoing FKs", %{origin: origin} do
+    test "should fail on tables are targets of FK within same request", %{origin: origin} do
       request = %SatShapeReq{
         request_id: "id1",
         shape_definition: %SatShapeDef{
           selects: [
             %SatShapeDef.Select{
-              tablename: "child",
-              where: ~S|value parent_id::text ILIKE "0000%"|
+              tablename: "parent",
+              where: ~S|id::text ILIKE '0000%'|
+            },
+            %SatShapeDef.Select{
+              tablename: "child"
             }
           ]
         }
@@ -272,7 +275,7 @@ defmodule Electric.Replication.ShapesTest do
       assert {:error,
               [
                 {"id1", :INVALID_WHERE_CLAUSE,
-                 "Where clause currently cannot be applied to a table with outgoing FKs" <> _}
+                 "Where clause currently cannot be applied to a table with incoming FKs" <> _}
               ]} =
                Shapes.validate_requests([request], origin)
     end

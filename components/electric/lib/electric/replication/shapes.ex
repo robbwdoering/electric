@@ -147,15 +147,22 @@ defmodule Electric.Replication.Shapes do
       |> Enum.filter(&(&1.where != ""))
       |> Enum.map(& &1.tablename)
 
-    # FIXME: this is wrong, and should be the other way around. We can't have tables within the same request that are "children" of the filtered one
-    case Enum.filter(selects_with_where, &(Graph.out_degree(graph, &1) > 0)) do
+    selected_tables = MapSet.new(selects, & &1.tablename)
+
+    # If children of a where-filtered tables are in selected, then we have a problem where we cannot guarantee FK consistency on the client right now.
+    # This is expected to be addressed later.
+    case Enum.filter(selects_with_where, &(not children_in_selected?(&1, selected_tables, graph))) do
       [] ->
         :ok
 
       violations ->
         {:INVALID_WHERE_CLAUSE,
-         "Where clause currently cannot be applied to a table with outgoing FKs, but requested tables do have them: #{Enum.join(violations, ", ")}"}
+         "Where clause currently cannot be applied to a table with incoming FKs in the same request, but requested tables do have them: #{Enum.join(violations, ", ")}"}
     end
+  end
+
+  defp children_in_selected?(table, selected, graph) do
+    MapSet.disjoint?(selected, MapSet.new(Graph.in_neighbors(graph, table)))
   end
 
   defp where_clauses_are_valid(%SatShapeDef{selects: selects}, schema) do
