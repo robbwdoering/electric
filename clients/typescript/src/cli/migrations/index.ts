@@ -1,1 +1,0 @@
-export { makeGenerateCommand } from './command'

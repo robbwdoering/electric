@@ -45,7 +45,7 @@
     "dist"
   ],
   "bin": {
-    "electric-sql": "dist/cli/index.js"
+    "electric-sql": "./dist/cli/main.js"
   },
   "exports": {
     "./package.json": "./package.json",
@@ -114,9 +114,10 @@
   },
   "scripts": {
     "post-version-bump": "node -p \"'export const LIB_VERSION = \\'' + require('./package.json').version + '\\''\" > src/version/index.ts",
-    "dev": "tsmodule dev",
-    "build": "rm -rf ./dist && tsc && tsmodule build",
-    "build-dev": "rm -rf ./dist && tsc && tsmodule build --dev",
+    "dev": "npm run build:copy-docker && tsmodule dev",
+    "build": "rm -rf ./dist && npm run build:copy-docker && tsc && tsmodule build",
+    "build-dev": "rm -rf ./dist && npm run build:copy-docker && tsc && tsmodule build --dev",
+    "build:copy-docker": "mkdir -p ./dist/cli/docker-commands/docker && cp -r ./src/cli/docker-commands/docker/ ./dist/cli/docker-commands/docker/",
     "test": "ava",
     "typecheck": "tsc -p tsconfig.tests.json",
     "posttest": "npm run typecheck",
@@ -150,8 +151,10 @@
     "async-mutex": "^0.4.0",
     "base-64": "^1.0.0",
     "better-sqlite3": "^8.4.0",
+    "commander": "^11.1.0",
     "cross-fetch": "^3.1.5",
     "decompress": "^4.2.1",
+    "dotenv": "^16.3.1",
     "events": "^3.3.0",
     "exponential-backoff": "^3.1.0",
     "fastestsmallesttextencoderdecoder": "^1.0.22",

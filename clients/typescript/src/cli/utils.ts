@@ -1,4 +1,21 @@
-// tagged template literal dedent function
+import fs from 'fs'
+import path from 'path'
+import { InvalidArgumentError } from 'commander'
+
+const appRoot = path.resolve() // path where the user ran `npx electric`
+
+/**
+ * Get the name of the current project.
+ */
+export function getAppName() {
+  const packageJsonPath = path.join(appRoot, 'package.json')
+  return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).name
+}
+
+/**
+ * Tagged template literal dedent function that also unwraps lines.
+ * Double newlines become a single newline.
+ */
 export function dedent(
   strings: TemplateStringsArray,
   ...values: unknown[]
@@ -42,4 +59,53 @@ export function dedent(
     })
     .join('')
     .trim()
+}
+
+export function parsePort(str: string) {
+  const parsed = parseInt(str)
+  if (isNaN(parsed)) {
+    throw new InvalidArgumentError(`Invalid port: ${str}.`)
+  }
+  return parsed
+}
+
+export function parseTimeout(str: string) {
+  const parsed = parseInt(str)
+  if (isNaN(parsed)) {
+    throw new InvalidArgumentError(
+      `Invalid timeout: ${str}. Must be an integer.`
+    )
+  }
+  return parsed
+}
+
+export function buildDatabaseURL(opts: {
+  user: string
+  password: string
+  host: string
+  port: number
+  dbName: string
+}) {
+  let url = 'postgresql://' + opts.user
+  if (opts.password) {
+    url += ':' + opts.password
+  }
+  url += '@' + opts.host + ':' + opts.port + '/' + opts.dbName
+  return url
+}
+
+export function extractDatabaseURL(url: string) {
+  const match = url.match(
+    /^postgresql:\/\/([^:]+)(?::([^@]+))?@([^:]+):(\d+)\/(.+)$/
+  )
+  if (!match) {
+    throw new Error(`Invalid database URL: ${url}`)
+  }
+  return {
+    user: match[1],
+    password: match[2] ?? '',
+    host: match[3],
+    port: parseInt(match[4]),
+    dbName: match[5],
+  }
 }

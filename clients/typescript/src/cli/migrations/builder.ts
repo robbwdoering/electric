@@ -6,7 +6,7 @@ import {
   parseMetadata,
   MetaData,
   makeMigration,
-} from '../../migrators'
+} from '../../migrators/index'
 
 /*
  * This file defines functions to build migrations

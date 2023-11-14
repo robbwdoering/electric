@@ -1,17 +1,8 @@
-#!/usr/bin/env node
-
-import { Command } from 'commander'
-import { LIB_VERSION } from '../version/index'
-import { makeGenerateCommand } from './migrations/commands'
-import 'dotenv/config' // Enables automatic reading from .env files
-
-const program = new Command()
-
-program
-  .name('ElectricSQL CLI')
-  .description('CLI to enable building ElectricSQL projects in TypeScript')
-  .version(LIB_VERSION)
-
-program.addCommand(makeGenerateCommand())
-
-await program.parseAsync(process.argv)
+export { generate } from './migrations/command-generate'
+export { start } from './docker-commands/command-start'
+export { stop } from './docker-commands/command-stop'
+export { check } from './docker-commands/command-check'
+export { psql } from './docker-commands/command-psql'
+export { configurePorts } from './configure/command-configure-ports'
+export { showConfig } from './configure/command-show-config'
+export { getConfig } from './config'
