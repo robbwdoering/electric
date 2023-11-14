@@ -5,7 +5,7 @@
     "alwaysStrict": true,
     "checkJs": false,
     "declaration": true,
-    "noEmit": true,
+    "emitDeclarationOnly": true,
     "forceConsistentCasingInFileNames": true,
     "incremental": false,
     "isolatedModules": true,

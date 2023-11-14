@@ -16,9 +16,8 @@ Object.values(packageJson.typesVersions['*']).map((paths: string[]) => {
 entry = [...new Set(entry)] // Remove duplicates
 
 export default defineConfig({
-  entry: entry,
+  entryPoints: entry,
   format: ['esm'],
   sourcemap: true,
-  clean: true,
-  dts: true,
+  dts: false,
 })
