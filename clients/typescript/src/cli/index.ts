@@ -1,30 +1,16 @@
 #!/usr/bin/env node
 
-import { handleGenerate } from './migrations'
+import { Command } from 'commander'
+import { LIB_VERSION } from '../version/index'
+import { makeGenerateCommand } from './migrations/command'
 
-const args = process.argv
+const program = new Command()
 
-if (args.length < 3) {
-  console.error(
-    'Too few arguments passed to CLI bin. Expected at least one command but got none.'
-  )
-  process.exit(9)
-}
+program
+  .name('ElectricSQL CLI')
+  .description('CLI to enable building ElectricSQL projects in TypeScript')
+  .version(LIB_VERSION)
 
-// When this file is called as follows: `node index.js migrate`
-// the arguments will be the path to node, the path to index.js, "migrate",
-// followed by the rest of the arguments
-const [_node, _file, command, ...commandArgs] = process.argv
+program.addCommand(makeGenerateCommand())
 
-type CommandHandlers = Record<string, (...args: string[]) => Promise<void>>
-const commandHandlers: CommandHandlers = {
-  generate: handleGenerate,
-}
-
-if (!Object.prototype.hasOwnProperty.call(commandHandlers, command)) {
-  console.error('Unknown command: ' + command)
-  process.exit(9)
-}
-
-const handler = commandHandlers[command as keyof CommandHandlers]
-await handler(...commandArgs)
+await program.parseAsync(process.argv)

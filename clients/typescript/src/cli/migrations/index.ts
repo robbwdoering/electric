@@ -1,1 +1,1 @@
-export { handleGenerate } from './handler'
+export { makeGenerateCommand } from './command'
