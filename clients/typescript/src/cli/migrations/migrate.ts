@@ -27,17 +27,40 @@ const generatorPath = path.join(
 
 const appRoot = path.resolve() // path where the user ran `npx electric migrate`
 
-export const defaultOptions = {
-  service: process.env.ELECTRIC_URL ?? 'http://localhost:5133',
-  proxy:
-    process.env.ELECTRIC_PROXY_URL ??
-    'postgresql://prisma:proxy_password@localhost:65432/electric', // use "prisma" user because we will introspect the DB via the proxy
-  out: path.join(appRoot, 'src/generated/client'),
-  watch: false,
-  pollingInterval: 1000, // in ms
+export const defaultPollingInterval = 1000 // in ms
+
+export function getDefaultOptions() {
+  let service
+  if (process.env.ELECTRIC_URL) {
+    service = process.env.ELECTRIC_URL
+  } else {
+    const port = process.env.ELECTRIC_HTTP_PORT ?? '5133'
+    service = `http://localhost:${port}`
+  }
+
+  let proxy
+  if (process.env.ELECTRIC_PG_PROXY_URL) {
+    proxy = process.env.ELECTRIC_PG_PROXY_URL
+  } else {
+    const port = process.env.ELECTRIC_PG_PROXY_PORT ?? '65432'
+    const password = process.env.ELECTRIC_PG_PROXY_PASSWORD ?? 'proxy_password'
+    proxy = `postgresql://prisma:${password}@localhost:${port}/electric`
+  }
+
+  const out =
+    process.env.ELECTRIC_CLIENT_PATH ??
+    path.join(appRoot, 'src/generated/client')
+
+  return {
+    service,
+    proxy,
+    out,
+    watch: false,
+    pollingInterval: defaultPollingInterval,
+  }
 }
 
-export type GeneratorOptions = typeof defaultOptions
+export type GeneratorOptions = ReturnType<typeof getDefaultOptions>
 
 export async function generate(opts: GeneratorOptions) {
   if (opts.watch) {

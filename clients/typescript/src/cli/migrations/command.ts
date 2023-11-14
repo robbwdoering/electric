@@ -1,6 +1,6 @@
 import { Command, InvalidArgumentError } from 'commander'
 import { dedent } from '../utils'
-import { generate, defaultOptions, GeneratorOptions } from './migrate'
+import { generate, getDefaultOptions, GeneratorOptions } from './migrate'
 
 export function makeGenerateCommand(): Command {
   const command = new Command('generate')
@@ -75,7 +75,7 @@ export function makeGenerateCommand(): Command {
       if (opts.proxy && !/^postgresql?:\/\//.test(opts.proxy)) {
         opts.proxy = 'postgresql://' + opts.proxy
       }
-      await generate({ ...defaultOptions, ...opts })
+      await generate({ ...getDefaultOptions(), ...opts })
     })
 
   return command
