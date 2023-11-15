@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import dotenvFlow from 'dotenv-flow';
-dotenvFlow.config();
+import dotenvFlow from 'dotenv-flow'
+dotenvFlow.config()
 
 import { Command } from 'commander'
 import { LIB_VERSION } from '../version/index'

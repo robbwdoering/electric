@@ -1,10 +1,11 @@
 import { defaultDbUrlPart, getConfigValue } from './config'
 import { dedent, getAppName, buildDatabaseURL } from './utils'
+import { LIB_VERSION } from '../version'
+
+const minorVersion = LIB_VERSION.split('.').slice(0, 2).join('.')
 
 /*
 To do:
-- image version env var - default to this library's minor version
-- postgres image version env var - default to this library's minor version
 - when using WITH_POSTGRES, set the default DATABASE_URL to the postgres container
 */
 
@@ -255,6 +256,24 @@ export const configOptions = {
     valueTypeName: 'enabled | disabled',
     doc: dedent`
       Set to "disable" to disable sending telemetry data to Electric.
+    `,
+    groups: ['electric'],
+  },
+  POSTGRESQL_IMAGE: {
+    valueType: String,
+    valueTypeName: 'image',
+    defaultVal: 'postgres:14-alpine',
+    doc: dedent`
+      The Docker image to use for the PostgreSQL database.
+    `,
+    groups: ['electric'],
+  },
+  ELECTRIC_IMAGE: {
+    valueType: String,
+    valueTypeName: 'image',
+    defaultVal: `electricsql/electric:${minorVersion}`, // Latest minor version of this library
+    doc: dedent`
+      The Docker image to use for Electric.
     `,
     groups: ['electric'],
   },
