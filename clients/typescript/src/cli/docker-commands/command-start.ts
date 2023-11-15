@@ -59,13 +59,10 @@ export function start(options: StartSettings) {
     }`
   )
   const appName = getAppName() ?? 'electric'
-  console.log('Docker compose project:', appName)
 
   const env = configToEnv(options.config)
 
   const dockerConfig = {
-    APP_NAME: appName,
-    COMPOSE_PROJECT_NAME: appName,
     ...env,
     ...(options.withPostgres
       ? {
@@ -86,8 +83,29 @@ export function start(options: StartSettings) {
     dockerConfig
   )
 
-  proc.on('close', (code) => {
-    if (code !== 0) {
+  proc.on('close', async (code) => {
+    if (code === 0) {
+      if (options.withPostgres && options.detach) {
+        console.log('Waiting for PostgreSQL to be ready...')
+        // Await the postgres container to be ready
+        const start = Date.now()
+        const timeout = 10 * 1000 // 10 seconds
+        while (Date.now() - start < timeout) {
+          if (await checkPostgres(env)) {
+            console.log('PostgreSQL is ready')
+            process.exit(0)
+          }
+          await new Promise((resolve) => setTimeout(resolve, 500))
+        }
+        console.error(
+          dedent`
+            Timed out waiting for PostgreSQL to be ready.
+            Check the output from 'docker compose' above.
+          `
+        )
+        process.exit(1)
+      }
+    } else {
       console.error(
         dedent`
           Failed to start the Electric backend. Check the output from 'docker compose' above.
@@ -96,6 +114,19 @@ export function start(options: StartSettings) {
         `
       )
       process.exit(code ?? 1)
+    }
+  })
+}
+
+function checkPostgres(env: { [key: string]: string }) {
+  return new Promise((resolve, reject) => {
+    try {
+      const proc = dockerCompose('exec', ['postgres', 'pg_isready'], env)
+      proc.on('close', (code) => {
+        resolve(code === 0)
+      })
+    } catch (e) {
+      reject(e)
     }
   })
 }

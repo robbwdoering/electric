@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { InvalidArgumentError } from 'commander'
 
-const appRoot = path.resolve() // path where the user ran `npx electric`
+export const appRoot = path.resolve() // path where the user ran `npx electric`
 
 /**
  * Get the name of the current project.

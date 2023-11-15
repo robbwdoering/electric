@@ -1,6 +1,7 @@
 import { spawn } from 'child_process'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { getAppName } from '../utils'
 
 // This code could be placed in a chunk and so import.meta.url may not be what
 // you expect. We find the root of the library by looking for /dist/ in the URL
@@ -22,6 +23,7 @@ export function dockerCompose(
   userArgs: string[] = [],
   env: { [key: string]: string } = {}
 ) {
+  const appName = getAppName() ?? 'electric'
   const args = [
     'compose',
     '--ansi',
@@ -35,6 +37,8 @@ export function dockerCompose(
     stdio: 'inherit',
     env: {
       ...process.env,
+      APP_NAME: appName,
+      COMPOSE_PROJECT_NAME: appName,
       ...env,
     },
   })

@@ -1,5 +1,4 @@
 import { Command } from 'commander'
-import { getAppName } from '../utils'
 import { dockerCompose } from './docker-utils'
 
 type StopCommandArgs = {
@@ -20,10 +19,7 @@ export function makeStopCommand() {
 }
 
 export function stop(opts: StopCommandArgs) {
-  const appName = getAppName()
   const env = {
-    ELECTRIC_APP_NAME: appName,
-    COMPOSE_PROJECT_NAME: appName,
     COMPOSE_PROFILES: 'with-postgres', // Stop any PostgreSQL containers too
   }
   let proc
