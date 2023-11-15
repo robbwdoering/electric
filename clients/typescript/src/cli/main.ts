@@ -6,7 +6,7 @@ import { LIB_VERSION } from '../version/index'
 import { makeGenerateCommand } from './migrations/command-generate'
 import { makeStartCommand } from './docker-commands/command-start'
 import { makeStopCommand } from './docker-commands/command-stop'
-import { makeCheckCommand } from './docker-commands/command-check'
+import { makeStatusCommand } from './docker-commands/command-status'
 import { makePsqlCommand } from './docker-commands/command-psql'
 import { makeConfigurePortsCommand } from './configure/command-configure-ports'
 import { makeShowConfigCommand } from './configure/command-show-config'
@@ -24,7 +24,7 @@ async function main() {
     makeGenerateCommand,
     makeStartCommand,
     makeStopCommand,
-    makeCheckCommand,
+    makeStatusCommand,
     makePsqlCommand,
     makeConfigurePortsCommand,
     makeShowConfigCommand,

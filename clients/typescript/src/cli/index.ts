@@ -1,7 +1,7 @@
 export { generate } from './migrations/command-generate'
 export { start } from './docker-commands/command-start'
 export { stop } from './docker-commands/command-stop'
-export { check } from './docker-commands/command-check'
+export { status } from './docker-commands/command-status'
 export { psql } from './docker-commands/command-psql'
 export { configurePorts } from './configure/command-configure-ports'
 export { showConfig } from './configure/command-show-config'
