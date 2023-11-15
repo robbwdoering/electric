@@ -93,6 +93,22 @@ type ConfigCamelCase = {
 
 type GetConfigOptions = Partial<Config & ConfigCamelCase>
 
+export type Group = ConfigOptions[ConfigOptionName]['groups'][number]
+
+export type ConfigForGroup<G extends Group> = {
+  [K in ConfigOptionName as G extends ConfigOptions[K]['groups'][number]
+    ? K
+    : never]: ConfigOptionValue<K>
+}
+
+export type GetConfigOptionsForGroup<G extends Group> = Partial<
+  ConfigForGroup<G> & {
+    [K in ConfigOptionName as G extends ConfigOptions[K]['groups'][number]
+      ? `${Camelize<Lowercase<K>>}`
+      : never]: ConfigOptionValue<K>
+  }
+>
+
 /**
  * Get the current configuration for Electric from environment variables and and
  * any passed options.

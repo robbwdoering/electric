@@ -32,7 +32,7 @@ export const configOptions = {
     doc: dedent`
       URL of the Electric service's PostgreSQL proxy.
     `,
-    groups: ['client'],
+    groups: ['client', 'proxy'],
     shortForm: 'p',
     defaultVal: () => {
       const host = getConfigValue('SERVICE_HOST')
@@ -60,7 +60,7 @@ export const configOptions = {
     doc: dedent`
       Hostname the Electric service is running on.
     `,
-    groups: ['client'],
+    groups: ['client', 'proxy'],
     defaultVal: 'localhost',
   },
 
@@ -130,7 +130,7 @@ export const configOptions = {
     `,
     valueType: String,
     defaultVal: () => defaultDbUrlPart('dbName', getAppName() ?? 'electric'),
-    groups: ['database', 'client'],
+    groups: ['database', 'client', 'proxy'],
   },
 
   // *** Electric options ***
@@ -191,7 +191,7 @@ export const configOptions = {
     valueType: Number,
     valueTypeName: 'port',
     doc: 'Port number for connections to the Postgres migration proxy.',
-    groups: ['electric', 'client'],
+    groups: ['electric', 'client', 'proxy'],
   },
   PG_PROXY_PASSWORD: {
     defaultVal: 'proxy_password',
@@ -201,7 +201,7 @@ export const configOptions = {
       Password to use when connecting to the Postgres proxy via psql or any other 
       Postgres client.
     `,
-    groups: ['electric', 'client'],
+    groups: ['electric', 'client', 'proxy'],
   },
   AUTH_MODE: {
     defaultVal: 'insecure',
