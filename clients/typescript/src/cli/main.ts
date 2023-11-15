@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
-import 'dotenv/config' // Enables automatic reading from .env files
+import dotenvFlow from 'dotenv-flow';
+dotenvFlow.config();
+
 import { Command } from 'commander'
 import { LIB_VERSION } from '../version/index'
 import { makeGenerateCommand } from './migrations/command-generate'

@@ -3,11 +3,6 @@ import { dedent, getAppName } from '../utils'
 import { addOptionGroupToCommand, getConfig, Config } from '../config'
 import { dockerCompose } from './docker-utils'
 
-/*
-To do:
-  - image version env var - default to this library's minor version
-*/
-
 export function makeStartCommand() {
   const command = new Command('start')
   command.description(

@@ -5,8 +5,8 @@ services:
     image: '${ELECTRIC_IMAGE:-electricsql/electric:latest}'
     init: true
     ports:
-      - ${ELECTRIC_PORT:-5133}:5133
-      - ${ELECTRIC_PG_PROXY_PORT:-65432}:65432
+      - ${HTTP_PORT:-5133}:5133
+      - ${PG_PROXY_PORT:-65432}:65432
     environment:
       DATABASE_REQUIRE_SSL: ${DATABASE_REQUIRE_SSL:-}
       DATABASE_URL: ${DATABASE_URL:-}
