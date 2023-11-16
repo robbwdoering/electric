@@ -96,16 +96,16 @@ export function buildDatabaseURL(opts: {
 
 export function extractDatabaseURL(url: string) {
   const match = url.match(
-    /^postgresql:\/\/([^:]+)(?::([^@]+))?@([^:]+):(\d+)\/(.+)$/
+    /^postgres(ql)?:\/\/([^:]+)(?::([^@]+))?@([^:]+):(\d+)\/(.+)$/
   )
   if (!match) {
     throw new Error(`Invalid database URL: ${url}`)
   }
   return {
-    user: match[1],
-    password: match[2] ?? '',
-    host: match[3],
-    port: parseInt(match[4]),
-    dbName: match[5],
+    user: match[2],
+    password: match[3] ?? '',
+    host: match[4],
+    port: parseInt(match[5]),
+    dbName: match[6],
   }
 }
