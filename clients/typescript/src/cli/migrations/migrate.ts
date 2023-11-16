@@ -11,6 +11,7 @@ import { dedent } from 'ts-dedent'
 import { findAndReplaceInFile } from '../util'
 import Module from 'node:module'
 import type { Config } from '../config'
+import { buildDatabaseURL } from '../utils'
 
 // Rather than run `npx prisma` we resolve the path to the prisma binary so that
 // we can be sure we are using the same version of Prisma that is a dependency of
@@ -242,6 +243,13 @@ async function createPrismaSchema(folder: string, opts: GeneratorOptions) {
   const prismaSchemaFile = path.join(prismaDir, 'schema.prisma')
   await fs.mkdir(prismaDir)
   const output = path.resolve(config.CLIENT_PATH)
+  const proxyUrl = buildDatabaseURL({
+    user: 'prisma', // We use the "prisma" user to put the proxy into introspection mode
+    password: config.PG_PROXY_PASSWORD,
+    host: config.SERVICE_HOST,
+    port: config.PG_PROXY_PORT,
+    dbName: config.DATABASE_NAME,
+  })
   const schema = dedent`
     generator electric {
       provider      = "${escapePathForString(generatorPath)}"
@@ -256,7 +264,7 @@ async function createPrismaSchema(folder: string, opts: GeneratorOptions) {
 
     datasource db {
       provider = "postgresql"
-      url      = "${config.PROXY}"
+      url      = "${proxyUrl}"
     }`
   await fs.writeFile(prismaSchemaFile, schema)
   return prismaSchemaFile

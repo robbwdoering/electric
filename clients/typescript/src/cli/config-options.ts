@@ -40,10 +40,10 @@ export const configOptions = {
       const port = getConfigValue('PG_PROXY_PORT')
       const password = getConfigValue('PG_PROXY_PASSWORD')
       const dbName = getConfigValue('DATABASE_NAME')
-      return `postgresql://prisma:${password}@${host}:${port}/${dbName}`
+      return `postgresql://postgres:${password}@${host}:${port}/${dbName}`
     },
     constructedDefault:
-      'postgresql://prisma:{ELECTRIC_PG_PROXY_PASSWORD}@{ELECTRIC_SERVICE_HOST}:{ELECTRIC_PG_PROXY_PORT}/{ELECTRIC_DATABASE_NAME}',
+      'postgresql://postgres:{ELECTRIC_PG_PROXY_PASSWORD}@{ELECTRIC_SERVICE_HOST}:{ELECTRIC_PG_PROXY_PORT}/{ELECTRIC_DATABASE_NAME}',
   },
   CLIENT_PATH: {
     valueType: String,
