@@ -11,6 +11,7 @@ export { generate }
 
 interface GenerateCommandArgs {
   watch?: number | true
+  withMigrations?: string
 }
 
 export function makeGenerateCommand(): Command {
@@ -41,12 +42,26 @@ export function makeGenerateCommand(): Command {
       }
     )
 
+    .option(
+      '--with-migrations <migrationsCommand>',
+      dedent`
+        Optional flag to specify a command to run to generate migrations.
+
+        With this option the work flow is:
+        1. Start new ElectricSQL and PostgreSQL containers
+        2. Run the provided migrations command
+        3. Generate the client
+        4. Stop and remove the containers
+      `
+    )
+
     .action(async (opts: GenerateCommandArgs) => {
-      const { watch, ...restOpts } = opts
+      const { watch, withMigrations, ...restOpts } = opts
       const config = getConfig(restOpts)
 
       const genOpts: GeneratorOptions = {
         config,
+        withMigrations,
       }
       if (watch !== undefined) {
         genOpts.watch = true

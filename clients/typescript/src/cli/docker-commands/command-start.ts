@@ -42,74 +42,85 @@ export function makeStartCommand() {
 
 interface StartSettings {
   detach?: boolean
+  exitOnDetached?: boolean
   withPostgres?: boolean
   pgPort?: number
   config: Config
 }
 
 export function start(options: StartSettings) {
-  console.log(
-    `Starting ElectricSQL sync service${
-      options.withPostgres ? ' with PostgreSQL' : ''
-    }`
-  )
-  const appName = getAppName() ?? 'electric'
+  return new Promise<void>((resolve) => {
+    const exitOnDetached = options.exitOnDetached ?? true
 
-  const env = configToEnv(options.config)
+    console.log(
+      `Starting ElectricSQL sync service${
+        options.withPostgres ? ' with PostgreSQL' : ''
+      }`
+    )
+    const appName = getAppName() ?? 'electric'
 
-  const dockerConfig = {
-    ...env,
-    ...(options.withPostgres
-      ? {
-          COMPOSE_PROFILES: 'with-postgres',
-          COMPOSE_ELECTRIC_SERVICE: 'electric-with-postgres',
-          DATABASE_URL: `postgresql://postgres:${
-            env?.DATABASE_PASSWORD ?? 'pg_password'
-          }@postgres:${env?.DATABASE_PORT ?? '5432'}/${appName}`,
-          LOGICAL_PUBLISHER_HOST: 'electric',
-        }
-      : {}),
-  }
-  console.log('Docker compose config:', dockerConfig)
+    const env = configToEnv(options.config)
 
-  const proc = dockerCompose(
-    'up',
-    [...(options.detach ? ['--detach'] : [])],
-    dockerConfig
-  )
-
-  proc.on('close', async (code) => {
-    if (code === 0) {
-      if (options.withPostgres && options.detach) {
-        console.log('Waiting for PostgreSQL to be ready...')
-        // Await the postgres container to be ready
-        const start = Date.now()
-        const timeout = 10 * 1000 // 10 seconds
-        while (Date.now() - start < timeout) {
-          if (await checkPostgres(env)) {
-            console.log('PostgreSQL is ready')
-            process.exit(0)
+    const dockerConfig = {
+      ...env,
+      ...(options.withPostgres
+        ? {
+            COMPOSE_PROFILES: 'with-postgres',
+            COMPOSE_ELECTRIC_SERVICE: 'electric-with-postgres',
+            DATABASE_URL: `postgresql://postgres:${
+              env?.DATABASE_PASSWORD ?? 'pg_password'
+            }@postgres:${env?.DATABASE_PORT ?? '5432'}/${appName}`,
+            LOGICAL_PUBLISHER_HOST: 'electric',
           }
-          await new Promise((resolve) => setTimeout(resolve, 500))
+        : {}),
+    }
+    console.log('Docker compose config:', dockerConfig)
+
+    const proc = dockerCompose(
+      'up',
+      [...(options.detach ? ['--detach'] : [])],
+      dockerConfig
+    )
+
+    proc.on('close', async (code) => {
+      if (code === 0) {
+        if (options.withPostgres && options.detach) {
+          console.log('Waiting for PostgreSQL to be ready...')
+          // Await the postgres container to be ready
+          const start = Date.now()
+          const timeout = 10 * 1000 // 10 seconds
+          while (Date.now() - start < timeout) {
+            if (await checkPostgres(env)) {
+              console.log('PostgreSQL is ready')
+              if (exitOnDetached) {
+                process.exit(0)
+              }
+              resolve()
+              return
+            }
+            await new Promise((resolve) => setTimeout(resolve, 500))
+          }
+          console.error(
+            dedent`
+              Timed out waiting for PostgreSQL to be ready.
+              Check the output from 'docker compose' above.
+            `
+          )
+          process.exit(1)
+        } else {
+          resolve()
         }
+      } else {
         console.error(
           dedent`
-            Timed out waiting for PostgreSQL to be ready.
-            Check the output from 'docker compose' above.
+            Failed to start the Electric backend. Check the output from 'docker compose' above.
+            If the error message mentions a port already being allocated or address being already in use,
+            execute 'npx electric-sql configure-ports' to run Electric on another port.
           `
         )
-        process.exit(1)
+        process.exit(code ?? 1)
       }
-    } else {
-      console.error(
-        dedent`
-          Failed to start the Electric backend. Check the output from 'docker compose' above.
-          If the error message mentions a port already being allocated or address being already in use,
-          execute 'npx electric-sql configure-ports' to run Electric on another port.
-        `
-      )
-      process.exit(code ?? 1)
-    }
+    })
   })
 }
 

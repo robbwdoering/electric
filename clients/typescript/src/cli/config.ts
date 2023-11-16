@@ -124,6 +124,15 @@ export function getConfig(options?: GetConfigOptions): Config {
   ) as Config
 }
 
+export function envFromConfig(config: Config) {
+  return Object.fromEntries(
+    Object.keys(config).map((name) => [
+      name.startsWith('ELECTRIC_') ? name : `ELECTRIC_${name}`,
+      config[name as ConfigOptionName]?.toString(),
+    ])
+  )
+}
+
 function snakeToCamel(s: string) {
   return s.toLocaleLowerCase().replace(/(_\w)/g, (m) => m[1].toUpperCase())
 }

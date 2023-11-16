@@ -12,6 +12,9 @@ import { findAndReplaceInFile } from '../util'
 import Module from 'node:module'
 import type { Config } from '../config'
 import { buildDatabaseURL } from '../utils'
+import { start } from '../docker-commands/command-start'
+import { stop } from '../docker-commands/command-stop'
+import { withConfig } from '../configure/command-with-config'
 
 // Rather than run `npx prisma` we resolve the path to the prisma binary so that
 // we can be sure we are using the same version of Prisma that is a dependency of
@@ -34,17 +37,49 @@ export const defaultPollingInterval = 1000 // in ms
 export interface GeneratorOptions {
   watch?: boolean
   pollingInterval?: number
+  withMigrations?: string
   config: Config
 }
 
 export async function generate(opts: GeneratorOptions) {
+  if (opts.watch && opts.withMigrations) {
+    console.error(
+      'Cannot use --watch and --with-migrations at the same time. Please choose one.'
+    )
+    process.exit(1)
+  }
   console.log('Generating Electric client...')
-  console.log('Service URL: ' + opts.config.SERVICE)
-  console.log('Proxy URL: ' + opts.config.PROXY)
-  if (opts.watch) {
-    watchMigrations(opts)
-  } else {
-    await _generate(opts)
+  try {
+    if (opts.withMigrations) {
+      // Start new ElectricSQL and PostgreSQL containers
+      console.log('Starting ElectricSQL and PostgreSQL containers...')
+      await start({
+        config: opts.config,
+        withPostgres: true,
+        detach: true,
+        exitOnDetached: false,
+      })
+      // Run the provided migrations command
+      console.log('Running migrations...')
+      withConfig(opts.withMigrations, opts.config)
+    }
+    console.log('Service URL: ' + opts.config.SERVICE)
+    console.log('Proxy URL: ' + opts.config.PROXY)
+    // Generate the client
+    if (opts.watch) {
+      watchMigrations(opts)
+    } else {
+      await _generate(opts)
+    }
+  } finally {
+    if (opts.withMigrations) {
+      // Stop and remove the containers
+      console.log('Stopping ElectricSQL and PostgreSQL containers...')
+      await stop({
+        remove: true,
+      })
+      console.log('Done')
+    }
   }
 }
 

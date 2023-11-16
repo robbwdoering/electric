@@ -19,19 +19,23 @@ export function makeStopCommand() {
 }
 
 export function stop(opts: StopCommandArgs) {
-  const env = {
-    COMPOSE_PROFILES: 'with-postgres', // Stop any PostgreSQL containers too
-  }
-  let proc
-  if (opts.remove) {
-    proc = dockerCompose('down', ['--volumes'], env)
-  } else {
-    proc = dockerCompose('stop', [], env)
-  }
-  proc.on('close', (code) => {
-    if (code !== 0) {
-      console.error('Failed to stop the ElectricSQL sync service.')
-      process.exit(code ?? 1)
+  return new Promise<void>((resolve) => {
+    const env = {
+      COMPOSE_PROFILES: 'with-postgres', // Stop any PostgreSQL containers too
     }
+    let proc
+    if (opts.remove) {
+      proc = dockerCompose('down', ['--volumes'], env)
+    } else {
+      proc = dockerCompose('stop', [], env)
+    }
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        console.error('Failed to stop the ElectricSQL sync service.')
+        process.exit(code ?? 1)
+      } else {
+        resolve()
+      }
+    })
   })
 }
