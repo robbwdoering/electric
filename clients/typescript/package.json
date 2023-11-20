@@ -61,7 +61,8 @@
     "./config": "./dist/config/index.js",
     "./debug": "./dist/util/debug/index.js",
     ".": "./dist/index.js",
-    "./*": "./dist/*/index.js"
+    "./*": "./dist/*/index.js",
+    "./satellite/mock": "./dist/satellite/mock.js"
   },
   "typesVersions": {
     "*": {
@@ -109,6 +110,9 @@
       ],
       "util": [
         "./dist/util/index.d.ts"
+      ],
+      "satellite/mock": [
+        "./dist/satellite/mock.d.ts"
       ]
     }
   },
