@@ -60,9 +60,10 @@
     "./wa-sqlite": "./dist/drivers/wa-sqlite/index.js",
     "./config": "./dist/config/index.js",
     "./debug": "./dist/util/debug/index.js",
+    "./satellite/mock": "./dist/satellite/mock.js",
+    "./satellite": "./dist/satellite/index.js",
     ".": "./dist/index.js",
-    "./*": "./dist/*/index.js",
-    "./satellite/mock": "./dist/satellite/mock.js"
+    "./*": "./dist/*/index.js"
   },
   "typesVersions": {
     "*": {
