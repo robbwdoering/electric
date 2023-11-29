@@ -32,7 +32,6 @@
   "devDependencies": {
     "@databases/pg-migrations": "^5.0.2",
     "@electric-sql/prisma-generator": "^1.1.0",
-    "@electric-sql/debug-toolbar": "^0.1.0",
     "@prisma/client": "4.8.1",
     "@types/node": ">=16.11.0",
     "@types/react": "^18.0.18",
