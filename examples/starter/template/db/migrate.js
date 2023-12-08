@@ -5,7 +5,7 @@ const process = require('process')
 console.info(`Connecting to proxy at ${PUBLIC_DATABASE_URL}`)
 
 const args = ["pg-migrations", "apply", "--database",  DATABASE_URL, "--directory", "./db/migrations"]
-const proc = spawn("npx", args, { stdio: ['inherit', 'pipe', 'inherit']  })
+const proc = spawn("npx", args, { stdio: ['inherit', 'pipe', 'inherit'], shell: process.platform == 'win32'  })
 
 let newMigrationsApplied = true
 
