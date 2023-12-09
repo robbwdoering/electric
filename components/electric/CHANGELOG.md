@@ -1,5 +1,11 @@
 # @core/electric
 
+## 0.8.1
+
+### Patch Changes
+
+- ddb70c97: [VAX-1374] Add a new write-to-pg mode that applies client updates as DML statements as opposed to streaming them to Postgres over a logical replication connection.
+
 ## 0.8.0
 
 ### Minor Changes
